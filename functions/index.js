@@ -36,4 +36,31 @@ app.post('/register',(req,res) => {
     })
 })
 
+//ลอง เขียน test relational db
+
+app.get('/join', async (req,res) => {
+
+    let obj = []
+    let user_regis = await db.collection('user_registration').where('user_id','==','1').get()
+    if(user_regis.empty){
+        res.status(404).json({
+            message:"No Matching Document"
+        })
+    }
+    else{
+        user_regis.forEach( async user_data => {
+            let subject_id = user_data.data().subject_id
+            let query_subject = await db.collection('subjects').doc(subject_id).get()
+            obj.push({
+                user_id:user_data.data().user_id,
+                subject:query_subject.data()
+            })
+            res.json(obj)
+        })
+    }
+  
+  
+   // res.end()
+})
+
 exports.api = functions.https.onRequest(app)
