@@ -29,26 +29,26 @@ app.post('/register', async (req,res) => {
     firebase.registerWithEmail(email, password, extras,function(err, result) {
         if (err)
             return console.log(err);
-        else
-            console.log(result);
+        else{
+            const user = result.user
+            const uid = user.id
+
+            let user_data = {
+                id:req.body.id,
+                firstname:req.body.firstname,
+                lastname:req.body.lastname,
+                email:req.body.email,
+                mobile:req.body.mobile,
+                user_type:req.body.user_type,
+                approved_status:"N"
+            }
+        
+            let user_db = await db.collection('users').doc(uid).set(user_data)
+            if(user_db){
+                res.send("Add Success Fully")
+            }
+        }
     });
-
-    let user_data = {
-        firstname:req.body.firstname,
-        lastname:req.body.lastname,
-        email:req.body.email,
-        mobile:req.body.mobile,
-        password:req.body.password,
-        user_type:req.body.user_type,
-        approved_status:"N"
-    }
-
-    let user_db = await db.collection('users').add(user_data)
-    if(user_db){
-        res.send("Add Success Fully")
-    }
-    res.end()
-   
 })
 
 
