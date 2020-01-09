@@ -26,7 +26,7 @@ app.post('/register', async (req,res) => {
     const extras = {
         name:req.body.firstname + " " + req.body.lastname
     }
-    firebase.registerWithEmail(email, password, extras,function(err, result) {
+    firebase.registerWithEmail(email, password, extras, async function(err, result) {
         if (err)
             return console.log(err);
         else{
@@ -57,17 +57,36 @@ app.post('/login',(req,res) => {
     const email = req.body.email
     const password = req.body.password
 
-    firebase.signInWithEmail(email,password,function(err,user){
-        if(!user){
-            res.status(401).json({
-                message:"You Are Not Authorized"
+    firebase.signInWithEmail(email,password,function(err,response){
+        if(err){
+            return res.status(401).json({
+                message:"You are not Authorized Because" + err.message
             })
         }
         else{
-            res.json(user)
+            const uid = response.user.id
+            db.collection('users').doc(uid).get()
+            .then((rec) => {
+                return res.status(201).json({
+                    token:response.token,
+                    user:rec.data()
+                })
+            })
+            .catch(err => {
+                console.log(err)
+            })
         }
         
     })
+})
+
+
+app.get('/user_login',(req,res) => {
+    // const token = req.body.token
+    // firebaseauth.getProfile(token,(err,data) => {
+    //     if(err) throw err
+    //     console.log()
+    // })
 })
 //ลอง เขียน test relational db
 
@@ -99,9 +118,6 @@ app.get('/join/:user_id', async (req,res) => {
                 arr.push(subject_data)
             }
         })
-
-
-
         return  res.status(201).json({
                 user_id:user_id,
                 results:arr
@@ -153,15 +169,19 @@ app.get('/users', async (req,res) => {
     let snapshot =  await usersRef.get()
     snapshot.forEach(docs => {
       let user = {
-        id : docs.id,
-        name: docs.data().name,
-        surname : docs.data().surname,
-        age: docs.data().age
+        id:docs.data().id,
+        uid : docs.id,
+        firstname: docs.data().firstname,
+        lastname : docs.data().lastname,
+        mobile:docs.data().mobile,
+        approved_status:docs.data().approved_status,
+        user_type:docs.data().user_type,
+        email:docs.data().email
       }
        users.push(user)
     })
     res.status(200).json({
-      message:"It is Okay",
+      message:"Success",
       data:users
     })
   })
