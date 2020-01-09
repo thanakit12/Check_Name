@@ -186,4 +186,69 @@ app.get('/users', async (req,res) => {
     })
   })
 
+
+  app.post('/addYear', async (req,res) => {
+
+    let data = {
+        year:req.body.year,
+        semester:req.body.semester,
+        status:"A"
+    }
+
+    let check = await db.collection('semester_year').get()
+    if(check.empty){
+        db.collection('semester_year').add(data).then(() => {
+            res.status(201).json({message:"Add Success"})
+        })
+        .catch(err => {
+            res.status(500).json({message:"Error :" + err})
+        })
+    }
+    else{
+        data.status = "D"
+        db.collection('semester_year').add(data).then(() => {
+            res.status(201).json({message:"Add Success"})
+        })
+        .catch(err => {
+            res.status(500).json({message:"Error :" + err})
+        })
+    }
+  })
+
+
+  app.get('/getYear',async (req,res) => {
+
+        const collect = []
+        let snapshot = await db.collection('semester_year').get()
+        snapshot.forEach(rec => {
+            let data = {
+                id:rec.id,
+                status: rec.data().status,
+                semester: rec.data().semester,
+                year: rec.data().year
+            }
+            collect.push(data)
+        })
+        return res.status(201).json({
+            data:collect
+        })
+  })
+
+
+  app.put('/setyearAvailable',async (req,res) => {
+
+    // const doc_id = req.params.id
+    
+    const year = []
+    let snapshot_year = await db.collection('semester_year').where('status','==',"A").get()
+    snapshot_year.forEach(doc => {
+        year.push(doc.data())
+    })
+    // console.log(year.status)
+    // // for(let i = 0 ; i < year.length ; i++){
+    // //     console.log(i)
+    // // }
+    res.end()
+  })
+
 exports.api = functions.https.onRequest(app)
