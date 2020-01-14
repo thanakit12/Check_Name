@@ -14,8 +14,28 @@ admin.initializeApp({
 });
 
 const app = express()
-let db = admin.firestore()
+const db = admin.firestore()
 
+const middleware_check_admin = function(req,res,next){
+   if(req.headers.token === undefined){
+      return res.status(500).json({message:"Please insert token"})
+   }
+   else{
+      const token = req.headers.token
+      admin.auth().verifyIdToken(token).then(claim => {
+          if(claim.admin === true){
+             next()
+          }
+          else{
+              return res.status(403).json({message:"You don't have permission"})
+          }
+      })
+      .catch(err => {
+          res.status(500).json({message:"Error: "+ err.message})
+      })
+   }
+
+}
 
 // ยังไม่ deploy ขึ้นทั้งหมด
 //register student  
@@ -32,7 +52,7 @@ app.post('/register', async (req,res) => {
         else{
             const user = result.user
             const uid = user.id
-
+            let customClaims
             let user_data = {
                 id:req.body.id,
                 firstname:req.body.firstname,
@@ -42,11 +62,32 @@ app.post('/register', async (req,res) => {
                 user_type:req.body.user_type,
                 approved_status:"N"
             }
-        
-            let user_db = await db.collection('users').doc(uid).set(user_data)
-            if(user_db){
-                res.send("Add Success Fully")
+            
+            if(req.body.user_type === 'A'){
+                 customClaims = {
+                    admin: true
+                  };
             }
+            else if(req.body.user_type === 'P'){
+                customClaims = {
+                    professor:false
+                };
+            }
+            else{
+                customClaims = {
+                    student:true
+                }
+            }
+            admin.auth().setCustomUserClaims(uid,customClaims)
+            .then(async () => {
+                let user_db = await db.collection('users').doc(uid).set(user_data)
+                if(user_db){
+                    res.status(201).json({message:"Add Success Fully"})
+                }
+            })
+            .catch(err => {
+                res.status(500).json({Err: err.message})
+            })
         }
     });
 })
@@ -60,7 +101,7 @@ app.post('/login',(req,res) => {
     firebase.signInWithEmail(email,password,function(err,response){
         if(err){
             return res.status(401).json({
-                message:"You are not Authorized Because" + err.message
+                message:"You are not Authorized Because " + err.message
             })
         }
         else{
@@ -81,13 +122,6 @@ app.post('/login',(req,res) => {
 })
 
 
-app.get('/user_login',(req,res) => {
-    // const token = req.body.token
-    // firebaseauth.getProfile(token,(err,data) => {
-    //     if(err) throw err
-    //     console.log()
-    // })
-})
 //ลอง เขียน test relational db
 
 app.get('/join/:user_id', async (req,res) => {
@@ -125,44 +159,6 @@ app.get('/join/:user_id', async (req,res) => {
     }
 })
 
-app.get('/getSubject', async (req,res) => {
-
-    const subject = await db.collection('subjects').get()
-    
-    const collect = []
-
-    subject.forEach(doc => {
-        let sid = doc.id
-        collect.push(db.collection('subjects').doc(sid).collection('Time').get())
-    })
-
-    const subjects= await Promise.all(collect)
-    
-    const arr = []
-
-    //  let subject_data = {}
-    // subject.forEach(rec => {
-    //     subject_data.subject_id = rec.data().subject_id,
-    //     subject_data.subject_name = rec.data().subject_name
-    //     arr.push(subject_data)
-    // })
-
-    subjects.forEach(docs => {
-       docs.forEach(rec => {
-           let subject_data = {
-               time : rec.data()
-           }
-           arr.push(subject_data)
-       })
-    })
-    res.json(arr)
-
-    // promise.forEach(docs => {
-    //     console.log(docs.data())
-    // })
-  
-})
-
 app.get('/users', async (req,res) => {
     let users = []
     let usersRef = db.collection('users');
@@ -187,7 +183,7 @@ app.get('/users', async (req,res) => {
   })
 
 
-  app.post('/addYear', async (req,res) => {
+  app.post('/addYear',middleware_check_admin, async (req,res) => {
 
     let data = {
         year:req.body.year,
@@ -216,7 +212,7 @@ app.get('/users', async (req,res) => {
   })
 
 
-  app.get('/getYear',async (req,res) => {
+  app.get('/getYear',middleware_check_admin,async (req,res) => {
 
         const collect = []
         let snapshot = await db.collection('semester_year').get()
@@ -235,20 +231,40 @@ app.get('/users', async (req,res) => {
   })
 
 
-  app.put('/setyearAvailable',async (req,res) => {
+  app.put('/setCurrentYear/:id',middleware_check_admin,async (req,res) => {
 
-    // const doc_id = req.params.id
+     const doc_id = req.params.id
     
-    const year = []
     let snapshot_year = await db.collection('semester_year').where('status','==',"A").get()
-    snapshot_year.forEach(doc => {
-        year.push(doc.data())
+    snapshot_year.forEach(rec => {
+        db.collection('semester_year').doc(rec.id).update({
+            status:"D"
+        })
     })
-    // console.log(year.status)
-    // // for(let i = 0 ; i < year.length ; i++){
-    // //     console.log(i)
-    // // }
-    res.end()
+    db.collection('semester_year').doc(doc_id).update({
+        status:"A"
+    }).then(() => {
+        res.status(201).json({message:"Update Success"})
+    }).catch(err => {
+        res.status(500).json({message:"Error :" + err})
+    })
   })
 
+  app.get('/getCurrentYear',middleware_check_admin,async (req,res) => {
+
+    const current_year = []
+    await db.collection('semester_year').where('status','==',"A").get()
+    .then(docs => {
+        docs.forEach(rec => {
+            current_year.push(rec.data())
+        })
+    })
+    .catch(err => {
+        res.status(500).json({message:"Error :" + err})
+    })
+    res.status(201).json({
+        message:"Success",
+        data:current_year
+    })
+  })
 exports.api = functions.https.onRequest(app)
