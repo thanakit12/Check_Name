@@ -16,9 +16,10 @@ admin.initializeApp({
 const app = express()
 const db = admin.firestore()
 
+//check permission admin
 const middleware_check_admin = function(req,res,next){
    if(req.headers.token === undefined){
-      return res.status(500).json({message:"Please insert token"})
+      return res.status(401).json({message:"Please insert token"})
    }
    else{
       const token = req.headers.token
@@ -34,10 +35,8 @@ const middleware_check_admin = function(req,res,next){
           res.status(500).json({message:"Error: "+ err.message})
       })
    }
-
 }
 
-// ยังไม่ deploy ขึ้นทั้งหมด
 //register student  
 app.post('/register', async (req,res) => {
  
@@ -48,7 +47,7 @@ app.post('/register', async (req,res) => {
     }
     firebase.registerWithEmail(email, password, extras, async function(err, result) {
         if (err)
-            return console.log(err);
+            return res.status(500).json({Error:err.message})
         else{
             const user = result.user
             const uid = user.id
@@ -60,24 +59,28 @@ app.post('/register', async (req,res) => {
                 email:req.body.email,
                 mobile:req.body.mobile,
                 user_type:req.body.user_type,
-                approved_status:"N"
+                // approved_status:"N"
             }
             
-            if(req.body.user_type === 'A'){
+            if(req.body.user_type === 'ADMIN'){
                  customClaims = {
                     admin: true
                   };
             }
-            else if(req.body.user_type === 'P'){
+            else if(req.body.user_type === 'PROFESSOR'){
                 customClaims = {
-                    professor:false
+                    professor:true
                 };
             }
-            else{
+            else if (req.body.user_type === 'NISIT'){
                 customClaims = {
-                    student:true
+                    nisit:true
                 }
             }
+            else{
+                return res.status(500).json({message:"Please insert correct type of user ex. 'ADMIN','PROFESSOR','NISIT'"})
+            }
+
             admin.auth().setCustomUserClaims(uid,customClaims)
             .then(async () => {
                 let user_db = await db.collection('users').doc(uid).set(user_data)
@@ -122,43 +125,7 @@ app.post('/login',(req,res) => {
 })
 
 
-//ลอง เขียน test relational db
-
-app.get('/join/:user_id', async (req,res) => {
-
-    //parameter user_id จาก url
-    const user_id = req.params.user_id
-    let snapshot_user = await db.collection('user_registration').where('user_id','==',user_id).get()
-    if(snapshot_user.empty){
-        res.status(404).json({
-            message:"No Matching Document"
-        })
-    }
-    else{
-        let subject_data = {}
-        const promises = []
-        snapshot_user.forEach(docs => {
-            let subject_id_fk = docs.data().subject_id
-            promises.push(db.collection('subjects').doc(subject_id_fk).get())
-        })
-        const subjects = await Promise.all(promises)
-        const arr = []
-        subjects.forEach((rec) => {
-            if (rec.data() !== undefined) {
-                     subject_data = {
-                    subject_id: rec.data().subject_id,
-                    subject_name: rec.data().subject_name
-                }
-                arr.push(subject_data)
-            }
-        })
-        return  res.status(201).json({
-                user_id:user_id,
-                results:arr
-         })
-    }
-})
-
+//Api User below
 app.get('/users', async (req,res) => {
     let users = []
     let usersRef = db.collection('users');
@@ -182,6 +149,69 @@ app.get('/users', async (req,res) => {
     })
   })
 
+
+  app.get('/getUserProfile/:uid',(req,res) => {
+
+    const uid = req.params.uid
+    admin.auth().getUser(uid)
+    .then(user => {
+        console.log(user)
+    })
+    .catch(err => {
+        console.log("Error : ",err.message)
+    })
+  })
+
+  app.put('/updateUser/:uid',(req,res) => {
+
+    const uid = req.params.uid
+
+    const data = {
+        email: req.body.email,
+        password: req.body.password,
+        name: req.body.firstname + " " + req.body.lastname,
+    }
+
+    admin.auth().updateUser(uid,data).then(() => {
+        db.collection('users').doc(uid).update({
+            email:req.body.email,
+            firstname:req.body.firstname,
+            lastname:req.body.lastname,
+            mobile:req.body.mobile
+        })
+        .then(() => {
+             return  res.status(201).json({message:"Update Success"})
+        })
+        .catch(err => {
+            return res.status(500).json({message:err.message})
+        })
+    })
+    .catch(err => {
+         return res.status(500).json({message:err.message})
+    })
+  })
+
+  app.delete('/deleteUser/:uid',(req,res) => {
+
+    const uid = req.params.uid
+    admin.auth().deleteUser(uid)
+    .then(() => {
+        db.collection('users').doc(uid).delete()
+        .then(() => {
+            return res.status(201).json({message:"Delete Success"})
+         })
+        .catch(err => {
+            return res.status(500).json({message:err.message})
+       })
+    })
+    .catch(err => {
+        return res.status(500).json({message:err.message})
+    })
+  })
+
+
+
+  //Api Year below
 
   app.post('/addYear',middleware_check_admin, async (req,res) => {
 
