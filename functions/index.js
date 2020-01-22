@@ -17,9 +17,7 @@ admin.initializeApp({
 });
 
 let db = admin.firestore()
-
 app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: false }))
 app.use(cors())
 
 // ยังไม่ deploy ขึ้นทั้งหมด
@@ -32,29 +30,54 @@ app.post('/register', async (req, res) => {
     const extras = {
         name: req.body.firstname + " " + req.body.lastname
     }
-    firebase.registerWithEmail(email, password, extras, function (err, result) {
+    firebase.registerWithEmail(email, password, extras, async function(err, result) {
         if (err)
-            return console.log(err);
-        else
-            console.log(result);
+            return res.status(500).json({Error:err.message})
+        else{
+            const user = result.user
+            const uid = user.id
+            let customClaims
+            let user_data = {
+                id:req.body.id,
+                firstname:req.body.firstname,
+                lastname:req.body.lastname,
+                email:req.body.email,
+                mobile:req.body.mobile,
+                role:req.body.role,
+                // approved_status:"N"
+            }
+            
+            if(req.body.role === 'ADMIN'){
+                 customClaims = {
+                    admin: true
+                  };
+            }
+            else if(req.body.role === 'PROFESSOR'){
+                customClaims = {
+                    professor:true
+                };
+            }
+            else if (req.body.role === 'NISIT'){
+                customClaims = {
+                    nisit:true
+                }
+            }
+            else{
+                return res.status(500).json({message:"Please insert correct type of user ex. 'ADMIN','PROFESSOR','NISIT'"})
+            }
+
+            admin.auth().setCustomUserClaims(uid,customClaims)
+            .then(async () => {
+                let user_db = await db.collection('users').doc(uid).set(user_data)
+                if(user_db){
+                    res.status(201).json({message:"Add Success Fully"})
+                }
+            })
+            .catch(err => {
+                res.status(500).json({Err: err.message})
+            })
+        }
     });
-
-    let user_data = {
-        firstname: req.body.firstname,
-        lastname: req.body.lastname,
-        email: req.body.email,
-        mobile: req.body.mobile,
-        password: req.body.password,
-        user_type: req.body.user_type,
-        approved_status: "N"
-    }
-
-    let user_db = await db.collection('users').add(user_data)
-    if (user_db) {
-        res.send("Add Success Fully")
-    }
-    res.end()
-
 })
 
 
@@ -63,19 +86,34 @@ app.post('/login', (req, res) => {
 
     const email = req.body.email
     const password = req.body.password
-
     if (email === undefined || password === undefined) {
-        res.send(email + " " + password)
+        res.send("Value is Undefined Eiei")
     }
     else {
-        firebase.signInWithEmail(email, password, function (err, user) {
+        firebase.signInWithEmail(email, password, async function (err, response) {
             if (err) {
                 res.status(401).json({
-                    message: "You Are Not Authorized"
+                    message: "You Are Not Authorized Because " + err.message
                 })
             }
             else {
-                res.json(user)
+                const user = response.user
+                const uid = user.id
+                await  db.collection('users').doc(uid).get()
+                .then(res => {
+                     user.role = res.data().role
+                })
+                .catch(err => {
+                    res.status(500).json({message:err.message})
+                })
+                return res.json({
+                    message:'PASS',
+                    status:{
+                        dataStatus:'SUCCESS'
+                    },
+                    data:response
+                })
+               
             }
         })
     }
