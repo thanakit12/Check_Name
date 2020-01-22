@@ -4,9 +4,11 @@ var serviceAccount = require("./service_account.json");
 const express = require('express')
 const firebaseauth = require('firebaseauth')
 const config = require('./config')
-const BodyParser = require('body-parser')
+const bodyParser = require('body-parser')
+const cors = require('cors')
 
 const firebase = new firebaseauth(config.api_key)
+const app = express()
 
 
 admin.initializeApp({
@@ -14,10 +16,11 @@ admin.initializeApp({
     databaseURL: "https://kpscheckin.firebaseio.com"
 });
 
-const app = express()
 let db = admin.firestore()
 
-app.use(BodyParser.json())
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(cors())
 
 // ยังไม่ deploy ขึ้นทั้งหมด
 //register student  
@@ -55,23 +58,28 @@ app.post('/register', async (req, res) => {
 })
 
 
-// app.post('/login', (req, res) => {
 
-//     const email = req.body.email
-//     const password = req.body.password
+app.post('/login', (req, res) => {
 
-//     firebase.signInWithEmail(email, password, function (err, user) {
-//         if (!user) {
-//             res.status(401).json({
-//                 message: "You Are Not Authorized"
-//             })
-//         }
-//         else {
-//             res.json(user)
-//         }
+    const email = req.body.email
+    const password = req.body.password
 
-//     })
-// })
+    if (email === undefined || password === undefined) {
+        res.send(email + " " + password)
+    }
+    else {
+        firebase.signInWithEmail(email, password, function (err, user) {
+            if (err) {
+                res.status(401).json({
+                    message: "You Are Not Authorized"
+                })
+            }
+            else {
+                res.json(user)
+            }
+        })
+    }
+})
 //ลอง เขียน test relational db
 
 app.get('/join/:user_id', async (req, res) => {
