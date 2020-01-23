@@ -23,6 +23,7 @@ app.use(cors())
 // ยังไม่ deploy ขึ้นทั้งหมด
 //register student  
 
+//merge วันที่ 23/1/2020 15.18
 app.post('/register', async (req, res) => {
 
     const email = req.body.email
