@@ -81,7 +81,7 @@ app.post('/register', async (req, res) => {
 })
 
 
-// เสร็จแล้ววันที่ 22/1/2020 19.46 
+// เสร็จแล้ววันที่ v.1.0.0 22/1/2020 19.46 
 app.post('/login', (req, res) => {
 
     const email = req.body.email
