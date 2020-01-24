@@ -166,7 +166,10 @@ app.get('/getUsers',check_admin, async (req,res) => {
        users.push(user)
     })
     res.status(200).json({
-      message:"Success",
+      message:"OK",
+      status:{
+          dataStatus:"SUCCESS"
+      },
       data:users
     })
   })
