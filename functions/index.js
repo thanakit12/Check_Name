@@ -72,7 +72,12 @@ app.post('/register', async (req, res) => {
             .then(async () => {
                 let user_db = await db.collection('users').doc(uid).set(user_data)
                 if(user_db){
-                    res.status(201).json({message:"Add Success Fully"})
+                    res.status(201).json({
+                        message:"Add Success Fully",
+                        status:{
+                            dataStatus:"SUCCESS"
+                        }
+                    })
                 }
             })
             .catch(err => {
