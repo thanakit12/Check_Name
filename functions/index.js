@@ -47,6 +47,7 @@ const permission_all = (req, res, next) => {
     }
     else {
         const token = req.headers.token
+<<<<<<< HEAD
         admin.auth().verifyIdToken(token)
             .then(claim => {
                 if (claim.user_id === req.body.uid) {
@@ -60,6 +61,21 @@ const permission_all = (req, res, next) => {
             })
             .catch(err => {
                 return res.status(500).json({ message: err.message })
+=======
+        admin.auth().verifyIdToken(token).then(claim => {
+            if(claim.user_id === req.params.uid){
+                next()
+            }
+            else{
+                return res.status(401).json({
+                    message:"UnAuthorized"
+                })
+            }
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message:err.message
+>>>>>>> admin_service
             })
     }
 }
@@ -222,9 +238,41 @@ app.delete('/deleteUser/:uid', check_admin, (req, res) => {
 })
 
 
+<<<<<<< HEAD
 app.put('/updateUser', permission_all, (req, res) => {
+=======
+app.get('/getProfile/:uid',permission_all,async (req,res) => {
+>>>>>>> admin_service
 
-    const uid = req.body.uid
+    const uid = req.params.uid
+    admin.auth().getUser(uid)
+    .then(user => {
+        return user.uid
+    })
+    .then(async doc_id => {
+        const user_profile = await db.collection('users').doc(doc_id).get()
+        if(!user_profile.exists){
+            res.status(404).json({message:"No Matching Document"})
+            return ;
+        }
+        else{
+           return res.status(200).json({
+               message:"Success",
+               status:{
+                   dataStatus:"SUCCESS"
+               },
+               data:user_profile.data()
+           })
+        }
+    })
+    .catch(err => {
+        console.log("Error : ",err.message)
+    })
+})
+
+app.put('/updateUser/:uid',permission_all,(req,res) => {
+
+    const uid = req.params.uid
 
     const data = {
         email: req.body.email,
