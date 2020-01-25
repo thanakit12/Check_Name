@@ -40,6 +40,26 @@ const check_admin = (req,res,next) => {
         })
      }
 }
+
+const permission_all = (req,res,next) => {
+    if(req.headers.token === undefined){
+        return res.status(401).json({message:"Please insert token"})
+    }
+    else{
+        const token = req.headers.token
+        admin.auth().verifyIdToken(token).then(claim => {
+            if(claim.admin === true || claim.professor === true || claim.nisit === true){
+               next()
+            }
+            else{
+                return res.status(403).json({message:"You don't have permission"})
+            }
+        })
+        .catch(err => {
+            return res.status(500).json({message:err.message})
+        })
+    }
+}
 //register student  
 
 
@@ -199,7 +219,34 @@ app.delete('/deleteUser/:uid',check_admin,(req,res) => {
 })
 
 
+app.put('/updateUser',permission_all,(req,res) => {
 
+    const uid = req.body.uid
+
+    const data = {
+        email: req.body.email,
+        password: req.body.password,
+        name: req.body.firstname + " " + req.body.lastname,
+    }
+    admin.auth().updateUser(uid,data).then(() => {
+        db.collection('users').doc(uid).update({
+            id:req.body.id,
+            email:req.body.email,
+            firstname:req.body.firstname,
+            lastname:req.body.lastname,
+            mobile:req.body.mobile
+        })
+        .then(() => {
+             return  res.status(200).json({message:"Update Success"})
+        })
+        .catch(err => {
+            return res.status(500).json({message:err.message})
+        })
+    })
+    .catch(err => {
+         return res.status(500).json({message:err.message})
+    })
+  })
 
 
 
