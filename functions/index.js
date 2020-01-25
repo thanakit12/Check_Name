@@ -21,43 +21,43 @@ app.use(bodyParser.json())
 app.use(cors())
 
 //Middle Ware Check Admin permission
-const check_admin = (req,res,next) => {
-    if(req.headers.token === undefined){
-        return res.status(401).json({message:"Please insert token"})
-     }
-     else{
+const check_admin = (req, res, next) => {
+    if (req.headers.token === undefined) {
+        return res.status(401).json({ message: "Please insert token" })
+    }
+    else {
         const token = req.headers.token
         admin.auth().verifyIdToken(token).then(claim => {
-            if(claim.admin === true){
-               next()
+            if (claim.admin === true) {
+                next()
             }
-            else{
-                return res.status(403).json({message:"You don't have permission"})
+            else {
+                return res.status(403).json({ message: "You don't have permission" })
             }
         })
-        .catch(err => {
-            res.status(500).json({message:"Error: "+ err.message})
-        })
-     }
+            .catch(err => {
+                res.status(500).json({ message: "Error: " + err.message })
+            })
+    }
 }
 
-const permission_all = (req,res,next) => {
-    if(req.headers.token === undefined){
-        return res.status(401).json({message:"Please insert token"})
+const permission_all = (req, res, next) => {
+    if (req.headers.token === undefined) {
+        return res.status(401).json({ message: "Please insert token" })
     }
-    else{
+    else {
         const token = req.headers.token
         admin.auth().verifyIdToken(token).then(claim => {
-            if(claim.admin === true || claim.professor === true || claim.nisit === true){
-               next()
+            if (claim.admin === true || claim.professor === true || claim.nisit === true) {
+                next()
             }
-            else{
-                return res.status(403).json({message:"You don't have permission"})
+            else {
+                return res.status(403).json({ message: "You don't have permission" })
             }
         })
-        .catch(err => {
-            return res.status(500).json({message:err.message})
-        })
+            .catch(err => {
+                return res.status(500).json({ message: err.message })
+            })
     }
 }
 //register student  
@@ -71,57 +71,57 @@ app.post('/register', async (req, res) => {
     const extras = {
         name: req.body.firstname + " " + req.body.lastname
     }
-    firebase.registerWithEmail(email, password, extras, async function(err, result) {
+    firebase.registerWithEmail(email, password, extras, async function (err, result) {
         if (err)
-            return res.status(500).json({Error:err.message})
-        else{
+            return res.status(500).json({ Error: err.message })
+        else {
             const user = result.user
             const uid = user.id
             let customClaims
             let user_data = {
-                id:req.body.id,
-                firstname:req.body.firstname,
-                lastname:req.body.lastname,
-                email:req.body.email,
-                mobile:req.body.mobile,
-                role:req.body.role,
+                id: req.body.id,
+                firstname: req.body.firstname,
+                lastname: req.body.lastname,
+                email: req.body.email,
+                mobile: req.body.mobile,
+                role: req.body.role,
                 // approved_status:"N"
             }
-            
-            if(req.body.role === 'ADMIN'){
-                 customClaims = {
-                    admin: true
-                  };
-            }
-            else if(req.body.role === 'PROFESSOR'){
+
+            if (req.body.role === 'ADMIN') {
                 customClaims = {
-                    professor:true
+                    admin: true
                 };
             }
-            else if (req.body.role === 'NISIT'){
+            else if (req.body.role === 'PROFESSOR') {
                 customClaims = {
-                    nisit:true
+                    professor: true
+                };
+            }
+            else if (req.body.role === 'NISIT') {
+                customClaims = {
+                    nisit: true
                 }
             }
-            else{
-                return res.status(500).json({message:"Please insert correct type of user ex. 'ADMIN','PROFESSOR','NISIT'"})
+            else {
+                return res.status(500).json({ message: "Please insert correct type of user ex. 'ADMIN','PROFESSOR','NISIT'" })
             }
 
-            admin.auth().setCustomUserClaims(uid,customClaims)
-            .then(async () => {
-                let user_db = await db.collection('users').doc(uid).set(user_data)
-                if(user_db){
-                    res.status(201).json({
-                        message:"Add Success Fully",
-                        status:{
-                            dataStatus:"SUCCESS"
-                        }
-                    })
-                }
-            })
-            .catch(err => {
-                res.status(500).json({Err: err.message})
-            })
+            admin.auth().setCustomUserClaims(uid, customClaims)
+                .then(async () => {
+                    let user_db = await db.collection('users').doc(uid).set(user_data)
+                    if (user_db) {
+                        res.status(201).json({
+                            message: "Add Success Fully",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    }
+                })
+                .catch(err => {
+                    res.status(500).json({ Err: err.message })
+                })
         }
     });
 })
@@ -145,21 +145,21 @@ app.post('/login', (req, res) => {
             else {
                 const user = response.user
                 const uid = user.id
-                await  db.collection('users').doc(uid).get()
-                .then(res => {
-                     user.role = res.data().role
-                })
-                .catch(err => {
-                    res.status(500).json({message:err.message})
-                })
+                await db.collection('users').doc(uid).get()
+                    .then(res => {
+                        user.role = res.data().role
+                    })
+                    .catch(err => {
+                        res.status(500).json({ message: err.message })
+                    })
                 return res.json({
-                    message:'PASS',
-                    status:{
-                        dataStatus:'SUCCESS'
+                    message: 'PASS',
+                    status: {
+                        dataStatus: 'SUCCESS'
                     },
-                    data:response
+                    data: response
                 })
-               
+
             }
         })
     }
@@ -167,59 +167,59 @@ app.post('/login', (req, res) => {
 
 //Admin Service  Merge Admin 24/1/2020 
 
-app.get('/getUsers',check_admin, async (req,res) => {
+app.get('/getUsers', check_admin, async (req, res) => {
 
     let users = []
     let usersRef = db.collection('users');
-    let snapshot =  await usersRef.get()
+    let snapshot = await usersRef.get()
     snapshot.forEach(docs => {
-      let user = {
-        id:docs.data().id,
-        uid : docs.id,
-        firstname: docs.data().firstname,
-        lastname : docs.data().lastname,
-        mobile:docs.data().mobile,
-        approved_status:docs.data().approved_status,
-        role:docs.data().role,
-        email:docs.data().email
-      }
-       users.push(user)
+        let user = {
+            id: docs.data().id,
+            uid: docs.id,
+            firstname: docs.data().firstname,
+            lastname: docs.data().lastname,
+            mobile: docs.data().mobile,
+            approved_status: docs.data().approved_status,
+            role: docs.data().role,
+            email: docs.data().email
+        }
+        users.push(user)
     })
     res.status(200).json({
-      message:"OK",
-      status:{
-          dataStatus:"SUCCESS"
-      },
-      data:users
-    })
-  })
-
-
-app.delete('/deleteUser/:uid',check_admin,(req,res) => {
-
-    const uid = req.params.uid
-    admin.auth().deleteUser(uid)
-    .then(() => {
-        db.collection('users').doc(uid).delete()
-        .then(() => {
-            return res.status(200).json({
-                message:"Delete Success",
-                status:{
-                    dataStatus:"SUCCESS"
-                }
-            })
-         })
-        .catch(err => {
-            return res.status(500).json({message:err.message})
-       })
-    })
-    .catch(err => {
-        return res.status(500).json({message:err.message})
+        message: "OK",
+        status: {
+            dataStatus: "SUCCESS"
+        },
+        data: users
     })
 })
 
 
-app.put('/updateUser',permission_all,(req,res) => {
+app.delete('/deleteUser/:uid', check_admin, (req, res) => {
+
+    const uid = req.params.uid
+    admin.auth().deleteUser(uid)
+        .then(() => {
+            db.collection('users').doc(uid).delete()
+                .then(() => {
+                    return res.status(200).json({
+                        message: "Delete Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        }
+                    })
+                })
+                .catch(err => {
+                    return res.status(500).json({ message: err.message })
+                })
+        })
+        .catch(err => {
+            return res.status(500).json({ message: err.message })
+        })
+})
+
+
+app.put('/updateUser', permission_all, (req, res) => {
 
     const uid = req.body.uid
 
@@ -228,25 +228,30 @@ app.put('/updateUser',permission_all,(req,res) => {
         password: req.body.password,
         name: req.body.firstname + " " + req.body.lastname,
     }
-    admin.auth().updateUser(uid,data).then(() => {
+    admin.auth().updateUser(uid, data).then(() => {
         db.collection('users').doc(uid).update({
-            id:req.body.id,
-            email:req.body.email,
-            firstname:req.body.firstname,
-            lastname:req.body.lastname,
-            mobile:req.body.mobile
+            id: req.body.id,
+            email: req.body.email,
+            firstname: req.body.firstname,
+            lastname: req.body.lastname,
+            mobile: req.body.mobile
         })
-        .then(() => {
-             return  res.status(200).json({message:"Update Success"})
-        })
+            .then(() => {
+                return res.status(200).json({
+                    message: "Update Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
+                })
+            })
+            .catch(err => {
+                return res.status(500).json({ message: err.message })
+            })
+    })
         .catch(err => {
-            return res.status(500).json({message:err.message})
+            return res.status(500).json({ message: err.message })
         })
-    })
-    .catch(err => {
-         return res.status(500).json({message:err.message})
-    })
-  })
+})
 
 
 
