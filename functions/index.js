@@ -47,34 +47,20 @@ const permission_all = (req, res, next) => {
     }
     else {
         const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
-<<<<<<< HEAD
-            if (claim.admin === true || claim.professor === true || claim.nisit === true) {
-                next()
-            }
-            else {
-                return res.status(403).json({ message: "You don't have permission" })
-            }
-        })
+        admin.auth().verifyIdToken(token)
+            .then(claim => {
+                if (claim.user_id === req.body.uid) {
+                    next()
+                }
+                else {
+                    return res.status(401).json({
+                        message: "UnAuthorized"
+                    })
+                }
+            })
             .catch(err => {
                 return res.status(500).json({ message: err.message })
             })
-=======
-            if(claim.user_id === req.body.uid){
-                next()
-            }
-            else{
-                return res.status(401).json({
-                    message:"UnAuthorized"
-                })
-            }
-        })
-        .catch(err => {
-            return res.status(500).json({
-                message:err.message
-            })
-        })
->>>>>>> admin_service
     }
 }
 //register student  
@@ -247,27 +233,11 @@ app.put('/updateUser', permission_all, (req, res) => {
     }
     admin.auth().updateUser(uid, data).then(() => {
         db.collection('users').doc(uid).update({
-<<<<<<< HEAD
             id: req.body.id,
             email: req.body.email,
             firstname: req.body.firstname,
             lastname: req.body.lastname,
             mobile: req.body.mobile
-=======
-            id:req.body.id,
-            email:req.body.email,
-            firstname:req.body.firstname,
-            lastname:req.body.lastname,
-            mobile:req.body.mobile
-        })
-        .then(() => {
-             return  res.status(200).json({
-                 message:"Update Success",
-                 status:{
-                     dataStatus:'SUCCESS'
-                 }
-                })
->>>>>>> admin_service
         })
             .then(() => {
                 return res.status(200).json({
