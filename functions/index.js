@@ -48,15 +48,19 @@ const permission_all = (req,res,next) => {
     else{
         const token = req.headers.token
         admin.auth().verifyIdToken(token).then(claim => {
-            if(claim.admin === true || claim.professor === true || claim.nisit === true){
-               next()
+            if(claim.user_id === req.body.uid){
+                next()
             }
             else{
-                return res.status(403).json({message:"You don't have permission"})
+                return res.status(401).json({
+                    message:"UnAuthorized"
+                })
             }
         })
         .catch(err => {
-            return res.status(500).json({message:err.message})
+            return res.status(500).json({
+                message:err.message
+            })
         })
     }
 }
@@ -228,7 +232,12 @@ app.put('/updateUser',permission_all,(req,res) => {
             mobile:req.body.mobile
         })
         .then(() => {
-             return  res.status(200).json({message:"Update Success"})
+             return  res.status(200).json({
+                 message:"Update Success",
+                 status:{
+                     dataStatus:'SUCCESS'
+                 }
+                })
         })
         .catch(err => {
             return res.status(500).json({message:err.message})
