@@ -166,6 +166,24 @@ app.get('/getUsers',check_admin, async (req,res) => {
   })
 
 
+app.delete('/deleteUser/:uid',(req,res) => {
+
+    const uid = req.params.uid
+    db.collection('users').doc(uid).delete()
+    .then(() => {
+        return res.status(200).json({
+            message:"Delete Success",
+            status:{
+                dataStatus:"SUCCESS"
+            }
+        })
+    })
+    .catch(err => {
+      return  res.status(500).json({
+            message:err.message
+        })
+    })
+})
 
 
 
