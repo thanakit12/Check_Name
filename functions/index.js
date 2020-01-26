@@ -303,9 +303,81 @@ app.put('/updateUser', (req, res) => {
 })
 
 
+const check_admin_professor = (req,res,next) => {
+  
+    if(req.headers.token !== undefined){
+        const token = req.headers.token
+        admin.auth().verifyIdToken(token)
+        .then(claim => {
+            if(claim.admin === true || claim.professor === true){
+                req.name = claim.name
+                next()
+            }
+            else{
+                res.status(403).json({
+                    message:"You don't granted permission"
+                })
+                return ;
+            }
+        })
+    }
+    else{
+        return res.status(401).json({
+            message:"Please Insert Token"
+        })
+    }
+}
+//Create Subject 
+app.post('/createSubject',check_admin_professor,async (req,res) => {
 
+    const subject = {
+        year:req.body.year,
+        semester:req.body.semester,
+        subject_code:req.body.subject_code,
+        subject_name:req.body.subject_name,
+        approved_status:"PENDING",
+        teacher_name:req.name
+    }
+    const snapshot_subject = await db.collection('subjects').add(subject)
+    if(snapshot_subject){
+        return res.status(201).json({
+            message:"Create Subject Success",
+            status:{
+                dataStatus:"SUCCESS"
+            }
+        })
+    }
+})
 
+//getSubject
+app.get('/getSubjectsApprove',check_admin,async (req,res) => {
 
+    const snapshot_subjects = await db.collection('subjects').get()
+    const subjects = []
+    if(snapshot_subjects.empty){
+        return res.status(404).json({
+            message:"No Document"
+        })
+    }
+    snapshot_subjects.forEach(doc => {
+        subjects.push({
+            id:doc.id,
+            year: doc.data().year,
+            semester:doc.data().semester,
+            subject_code: doc.data().subject_code,
+            subject_name: doc.data().subject_name,
+            approved_status:doc.data().approved_status
+        })
+    })
+    console.log(subjects)
+    return res.status(200).json({
+        message:"Get Success",
+        status:{
+            dataStatus:"SUCCESS"
+        },
+        data: subjects
+    })
+})
 
 
 //ลอง เขียน test relational db
