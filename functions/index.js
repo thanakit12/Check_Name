@@ -379,7 +379,50 @@ app.get('/getSubjectsApprove',check_admin,async (req,res) => {
     })
 })
 
+//admin approve subject
+app.put('/approve/:id',check_admin,(req,res) => {
 
+    const subject_id = req.params.id
+    db.collection('subjects').doc(subject_id).update({
+        approved_status:"APPROVE"
+    })
+    .then(() => {
+        return res.status(200).json({
+            message:"Approve Success",
+            status:{
+                dataStatus:"SUCCESS"
+            }
+        })
+    })
+    .catch(err => {
+        return res.status(500).json({
+            message:err.message
+        })
+    })
+})
+
+//Admin Reject 
+
+app.put('/reject/:id',check_admin,(req,res) => {
+
+    const subject_id = req.params.id
+    db.collection('subjects').doc(subject_id).update({
+        approved_status:"REJECT"
+    })
+    .then(() => {
+        return res.status(200).json({
+            message:"Reject Success",
+            status:{
+                dataStatus:"SUCCESS"
+            }
+        })
+    })
+    .catch(err => {
+        return res.status(500).json({
+            message:err.message
+        })
+    })
+})
 //ลอง เขียน test relational db
 
 // app.get('/join/:user_id', async (req, res) => {
