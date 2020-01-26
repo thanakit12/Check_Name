@@ -41,32 +41,9 @@ const check_admin = (req, res, next) => {
     }
 }
 
-const permission_all = (req, res, next) => {
-    if (req.headers.token === undefined) {
-        return res.status(401).json({ message: "Please insert token" })
-    }
-    else {
-        const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
-            if (claim.user_id === req.params.uid) {
-                next()
-            }
-            else {
-                return res.status(401).json({
-                    message: "UnAuthorized"
-                })
-            }
-        })
-            .catch(err => {
-                return res.status(500).json({
-                    message: err.message
-                })
-            })
-    }
 //register student  
 
-
-//แก้ v.1.0.1 24/1/2020
+//merge วันที่ 23/1/2020 15.18
 app.post('/register', async (req, res) => {
 
     const email = req.body.email
@@ -168,7 +145,7 @@ app.post('/login', (req, res) => {
     }
 })
 
-//Admin Service  Merge Admin 24/1/2020 
+//Admin Service 
 
 app.get('/getUsers', check_admin, async (req, res) => {
 
@@ -189,14 +166,10 @@ app.get('/getUsers', check_admin, async (req, res) => {
         users.push(user)
     })
     res.status(200).json({
-<<<<<<< HEAD
-        message: "OK",
+        message: "Success",
         status: {
             dataStatus: "SUCCESS"
         },
-=======
-        message: "Success",
->>>>>>> admin_service
         data: users
     })
 })
