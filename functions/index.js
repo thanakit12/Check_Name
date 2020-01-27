@@ -41,6 +41,27 @@ const check_admin = (req, res, next) => {
     }
 }
 
+const permission_professor = (req, res, next) => {
+    if (req.headers.token === undefined) {
+        return res.status(401).json({ message: "Please insert token" })
+    }
+    else {
+        const token = req.headers.token
+        admin.auth().verifyIdToken(token).then(claim => {
+            if (claim.professor === true) {
+                req.name = claim.name
+                next()
+            }
+            else {
+                return res.status(403).json({ message: "You don't have permission" })
+            }
+        })
+            .catch(err => {
+                res.status(500).json({ message: "Error: " + err.message })
+            })
+    }
+}
+
 //register student  
 
 //merge วันที่ 23/1/2020 15.18
@@ -257,7 +278,6 @@ app.put('/updateUser', (req, res) => {
             .then(uid => {
                 const data = {
                     email: req.body.email,
-                    password: req.body.password,
                     name: req.body.firstname + " " + req.body.lastname,
                 }
                 admin.auth().updateUser(uid, data)
@@ -457,6 +477,51 @@ app.put('/rejectMulty', check_admin, async (req, res) => {
             dataStatus: "SUCCESS"
         }
     })
+})
+
+
+//Open section 
+
+app.post('/subject_register', permission_professor, (req, res) => {
+
+    const time = []
+    if (req.body.Time.length > 0) {
+        for (let i = 0; i < req.body.Time.length; i++) {
+            time.push(req.body.Time[i])
+        }
+    }
+    const data = {
+        Year: {
+            year: req.body.year,
+            semester: req.body.semester
+        },
+        Subject: {
+            subject_code: req.body.Subject.subject_code,
+            subject_name: req.body.Subject.subject_name,
+            approved_status: req.body.Subject.approved_status
+        },
+        section_number: req.body.section_number,
+        time_late: req.body.time_late,
+        time_absent: req.body.time_absent,
+        total_mark:req.body.total_mark,
+        teacher_name: req.name,
+        status:'ACTIVE'
+    }
+    data.Time = time
+    db.collection('section_subject').add(data)
+        .then(() => {
+            return res.status(201).json({
+                message: "Add Success",
+                status:{
+                    dataStatus:"SUCCESS"
+                }
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
 })
 //ลอง เขียน test relational db
 
