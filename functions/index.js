@@ -233,7 +233,7 @@ app.get('/getProfile', async (req, res) => {
             })
             .catch(err => {
                 return res.status(500).json({
-                    message:err.message
+                    message: err.message
                 })
             })
     }
@@ -247,180 +247,215 @@ app.get('/getProfile', async (req, res) => {
 
 app.put('/updateUser', (req, res) => {
 
-    if(req.headers.token !== undefined){
+    if (req.headers.token !== undefined) {
         const token = req.headers.token
         admin.auth().verifyIdToken(token)
-        .then(claim => {
-            const user_id = claim.user_id
-            return user_id
-        })
-        .then(uid => {
-            const data = {
-                email: req.body.email,
-                password: req.body.password,
-                name: req.body.firstname + " " + req.body.lastname,
-            }
-            admin.auth().updateUser(uid,data)
-            .then(() => {
-                db.collection('users').doc(uid).update({
-                    id: req.body.id,
+            .then(claim => {
+                const user_id = claim.user_id
+                return user_id
+            })
+            .then(uid => {
+                const data = {
                     email: req.body.email,
-                    firstname: req.body.firstname,
-                    lastname: req.body.lastname,
-                    mobile: req.body.mobile
-                })
-                .then(() => {
-                    return res.status(200).json({
-                            message: "Update Success",
-                            status: {
-                                dataStatus: 'SUCCESS'
-                            }
-                     })
-                })
-                .catch(err => {
-                    return res.status(500).json({
-                        message:err.message
+                    password: req.body.password,
+                    name: req.body.firstname + " " + req.body.lastname,
+                }
+                admin.auth().updateUser(uid, data)
+                    .then(() => {
+                        db.collection('users').doc(uid).update({
+                            id: req.body.id,
+                            email: req.body.email,
+                            firstname: req.body.firstname,
+                            lastname: req.body.lastname,
+                            mobile: req.body.mobile
+                        })
+                            .then(() => {
+                                return res.status(200).json({
+                                    message: "Update Success",
+                                    status: {
+                                        dataStatus: 'SUCCESS'
+                                    }
+                                })
+                            })
+                            .catch(err => {
+                                return res.status(500).json({
+                                    message: err.message
+                                })
+                            })
                     })
-                })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
             })
             .catch(err => {
                 return res.status(500).json({
-                    message:err.message
+                    message: err.message
                 })
             })
-        })
-        .catch(err => {
-            return res.status(500).json({
-                message:err.message
-            })
-        })
     }
-    else{
+    else {
         return res.status(401).json({
-            message:"Please Insert token"
+            message: "Please Insert token"
         })
     }
 })
 
 
-const check_admin_professor = (req,res,next) => {
-  
-    if(req.headers.token !== undefined){
+const check_admin_professor = (req, res, next) => {
+
+    if (req.headers.token !== undefined) {
         const token = req.headers.token
         admin.auth().verifyIdToken(token)
-        .then(claim => {
-            if(claim.admin === true || claim.professor === true){
-                req.name = claim.name
-                next()
-            }
-            else{
-                res.status(403).json({
-                    message:"You don't granted permission"
-                })
-                return ;
-            }
-        })
+            .then(claim => {
+                if (claim.admin === true || claim.professor === true) {
+                    req.name = claim.name
+                    next()
+                }
+                else {
+                    res.status(403).json({
+                        message: "You don't granted permission"
+                    })
+                    return;
+                }
+            })
     }
-    else{
+    else {
         return res.status(401).json({
-            message:"Please Insert Token"
+            message: "Please Insert Token"
         })
     }
 }
 //Create Subject 
-app.post('/createSubject',check_admin_professor,async (req,res) => {
+app.post('/createSubject', check_admin_professor, async (req, res) => {
 
     const subject = {
-        year:req.body.year,
-        semester:req.body.semester,
-        subject_code:req.body.subject_code,
-        subject_name:req.body.subject_name,
-        approved_status:"PENDING",
-        teacher_name:req.name
+        year: req.body.year,
+        semester: req.body.semester,
+        subject_code: req.body.subject_code,
+        subject_name: req.body.subject_name,
+        approved_status: "PENDING",
+        teacher_name: req.name
     }
     const snapshot_subject = await db.collection('subjects').add(subject)
-    if(snapshot_subject){
+    if (snapshot_subject) {
         return res.status(201).json({
-            message:"Create Subject Success",
-            status:{
-                dataStatus:"SUCCESS"
+            message: "Create Subject Success",
+            status: {
+                dataStatus: "SUCCESS"
             }
         })
     }
 })
 
 //getSubject
-app.get('/getSubjectsApprove',check_admin,async (req,res) => {
+app.get('/getSubjectsApprove', check_admin, async (req, res) => {
 
     const snapshot_subjects = await db.collection('subjects').get()
     const subjects = []
-    if(snapshot_subjects.empty){
+    if (snapshot_subjects.empty) {
         return res.status(404).json({
-            message:"No Document"
+            message: "No Document"
         })
     }
     snapshot_subjects.forEach(doc => {
         subjects.push({
-            id:doc.id,
+            id: doc.id,
             year: doc.data().year,
-            semester:doc.data().semester,
+            semester: doc.data().semester,
             subject_code: doc.data().subject_code,
             subject_name: doc.data().subject_name,
-            approved_status:doc.data().approved_status
+            approved_status: doc.data().approved_status
         })
     })
     console.log(subjects)
     return res.status(200).json({
-        message:"Get Success",
-        status:{
-            dataStatus:"SUCCESS"
+        message: "Get Success",
+        status: {
+            dataStatus: "SUCCESS"
         },
         data: subjects
     })
 })
 
+//Deploy 27/1/2020
 //admin approve subject
-app.put('/approve/:id',check_admin,(req,res) => {
+app.put('/approve/:id', check_admin, (req, res) => {
 
     const subject_id = req.params.id
     db.collection('subjects').doc(subject_id).update({
-        approved_status:"APPROVE"
+        approved_status: "APPROVE"
     })
-    .then(() => {
-        return res.status(200).json({
-            message:"Approve Success",
-            status:{
-                dataStatus:"SUCCESS"
-            }
+        .then(() => {
+            return res.status(200).json({
+                message: "Approve Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                }
+            })
         })
-    })
-    .catch(err => {
-        return res.status(500).json({
-            message:err.message
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
         })
-    })
 })
 
 //Admin Reject 
 
-app.put('/reject/:id',check_admin,(req,res) => {
+app.put('/reject/:id', check_admin, (req, res) => {
 
     const subject_id = req.params.id
     db.collection('subjects').doc(subject_id).update({
-        approved_status:"REJECT"
+        approved_status: "REJECT"
     })
-    .then(() => {
-        return res.status(200).json({
-            message:"Reject Success",
-            status:{
-                dataStatus:"SUCCESS"
-            }
+        .then(() => {
+            return res.status(200).json({
+                message: "Reject Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                }
+            })
         })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+})
+
+//Admin Approve multi v.1.0.0
+app.put('/approveMulty', check_admin, async (req, res) => {
+
+    const approve_ids = req.body.approve_ids
+    for (let i = 0; i < approve_ids.length; i++) {
+        db.collection('subjects').doc(approve_ids[i]).update({
+            approved_status: "APPROVE"
+        })
+    }
+    return res.status(200).json({
+        message: "Approve Success",
+        status: {
+            dataStatus: "SUCCESS"
+        }
     })
-    .catch(err => {
-        return res.status(500).json({
-            message:err.message
+})
+
+//rejectMulty v.1.0.0
+app.put('/rejectMulty', check_admin, async (req, res) => {
+
+    const reject_ids = req.body.reject_ids
+    for (let i = 0; i < reject_ids.length; i++) {
+        db.collection('subjects').doc(reject_ids[i]).update({
+            approved_status: "REJECT"
         })
+    }
+    return res.status(200).json({
+        message: "Reject Success",
+        status: {
+            dataStatus: "SUCCESS"
+        }
     })
 })
 //ลอง เขียน test relational db
