@@ -95,18 +95,18 @@ app.post('/register', async (req, res) => {
                     admin: true
                 };
             }
-            else if (req.body.role === 'PROFESSOR') {
+            else if (req.body.role === 'LECTURER') {
                 customClaims = {
                     professor: true
                 };
             }
-            else if (req.body.role === 'NISIT') {
+            else if (req.body.role === 'STUDENT') {
                 customClaims = {
                     nisit: true
                 }
             }
             else {
-                return res.status(500).json({ message: "Please insert correct type of user ex. 'ADMIN','PROFESSOR','NISIT'" })
+                return res.status(500).json({ message: "Please insert correct type of user ex. 'ADMIN','LECTURER','STUDENT'" })
             }
 
             admin.auth().setCustomUserClaims(uid, customClaims)
