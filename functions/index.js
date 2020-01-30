@@ -50,6 +50,7 @@ const permission_professor = (req, res, next) => {
         admin.auth().verifyIdToken(token).then(claim => {
             if (claim.professor === true) {
                 req.name = claim.name
+                req.user_id = claim.user_id
                 next()
             }
             else {
@@ -140,7 +141,7 @@ app.post('/login', (req, res) => {
         firebase.signInWithEmail(email, password, async function (err, response) {
             if (err) {
                 res.status(401).json({
-                    message: "You Are Not Authorized Because " + err.message
+                    message: "You are not authorized because " + err.message
                 })
             }
             else {
@@ -331,6 +332,8 @@ const check_admin_professor = (req, res, next) => {
             .then(claim => {
                 if (claim.admin === true || claim.professor === true) {
                     req.name = claim.name
+                    req.claim = claim
+                    req.uid = claim.uid
                     next()
                 }
                 else {
@@ -347,16 +350,31 @@ const check_admin_professor = (req, res, next) => {
         })
     }
 }
-//Create Subject 
+//Create Subject  //แก้ v.1.0.1 30/1/2020
 app.post('/createSubject', check_admin_professor, async (req, res) => {
 
-    const subject = {
-        year: req.body.year,
-        semester: req.body.semester,
-        subject_code: req.body.subject_code,
-        subject_name: req.body.subject_name,
-        approved_status: "PENDING",
-        teacher_name: req.name
+    let subject;
+    if (req.claim.professor === true) {
+        subject = {
+            year: req.body.year,
+            semester: req.body.semester,
+            subject_code: req.body.subject_code,
+            subject_name: req.body.subject_name,
+            approved_status: "PENDING",
+            creater_name: req.name,
+            uid:req.uid
+        }
+    }
+    else{
+        subject = {
+            year: req.body.year,
+            semester: req.body.semester,
+            subject_code: req.body.subject_code,
+            subject_name: req.body.subject_name,
+            approved_status: "APPROVE",
+            creater_name: req.name,
+            uid:req.uid
+        }
     }
     const snapshot_subject = await db.collection('subjects').add(subject)
     if (snapshot_subject) {
@@ -369,8 +387,8 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
     }
 })
 
-//getSubject
-app.get('/getSubjectsApprove', check_admin, async (req, res) => {
+//getSubject // ลบสิทธิ์ admin
+app.get('/getSubjectsApprove', async (req, res) => {
 
     const snapshot_subjects = await db.collection('subjects').get()
     const subjects = []
@@ -389,7 +407,6 @@ app.get('/getSubjectsApprove', check_admin, async (req, res) => {
             approved_status: doc.data().approved_status
         })
     })
-    console.log(subjects)
     return res.status(200).json({
         message: "Get Success",
         status: {
@@ -480,7 +497,7 @@ app.put('/rejectMulty', check_admin, async (req, res) => {
 })
 
 
-//Open section 
+//Open section  Deploy 27/1/2020
 
 app.post('/subject_register', permission_professor, (req, res) => {
 
@@ -503,17 +520,19 @@ app.post('/subject_register', permission_professor, (req, res) => {
         section_number: req.body.section_number,
         time_late: req.body.time_late,
         time_absent: req.body.time_absent,
-        total_mark:req.body.total_mark,
+        total_mark: req.body.total_mark,
         teacher_name: req.name,
-        status:'ACTIVE'
+        teacher_id: req.user_id,
+        status: 'ACTIVE'
     }
+    console.log(req.user_id)
     data.Time = time
     db.collection('section_subject').add(data)
         .then(() => {
             return res.status(201).json({
                 message: "Add Success",
-                status:{
-                    dataStatus:"SUCCESS"
+                status: {
+                    dataStatus: "SUCCESS"
                 }
             })
         })
@@ -522,6 +541,38 @@ app.post('/subject_register', permission_professor, (req, res) => {
                 message: err.message
             })
         })
+})
+
+//Professor get subjects
+app.get('/getSubjects', permission_professor, async (req, res) => {
+
+    const subjects = []
+    const snapshot_subject = await db.collection('section_subject').where('teacher_id', '==', req.user_id).get()
+    if (snapshot_subject.empty) {
+        return res.status(404).json({
+            message: "No Matching Document"
+        })
+    }
+    snapshot_subject.forEach(doc => {
+        subjects.push({
+            id: doc.id,
+            Year: doc.data().Year,
+            section_number: doc.data().section_number,
+            Subject: doc.data().Subject,
+            Time: doc.data().Time,
+            time_absent: doc.data().time_absent,
+            time_late: doc.data().time_late,
+            total_mark: doc.data().total_mark,
+            status: doc.data().status
+        })
+    })
+    return res.status(200).json({
+        message: "Get Success",
+        status: {
+            dataStatus: "SUCCESS"
+        },
+        data: subjects
+    })
 })
 //ลอง เขียน test relational db
 
@@ -601,23 +652,5 @@ app.get('/getSubject', async (req, res) => {
 
 })
 
-app.get('/users', async (req, res) => {
-    let users = []
-    let usersRef = db.collection('users');
-    let snapshot = await usersRef.get()
-    snapshot.forEach(docs => {
-        let user = {
-            id: docs.id,
-            name: docs.data().name,
-            surname: docs.data().surname,
-            age: docs.data().age
-        }
-        users.push(user)
-    })
-    res.status(200).json({
-        message: "It is Okay",
-        data: users
-    })
-})
 
 exports.api = functions.https.onRequest(app)
