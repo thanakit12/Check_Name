@@ -343,6 +343,11 @@ const check_admin_professor = (req, res, next) => {
                     return;
                 }
             })
+            .catch(err => {
+                return res.status(500).json({
+                    message:err.message
+                })
+            })
     }
     else {
         return res.status(401).json({
@@ -362,10 +367,10 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
             subject_name: req.body.subject_name,
             approved_status: "PENDING",
             creater_name: req.name,
-            uid:req.uid
+            uid: req.uid
         }
     }
-    else{
+    else {
         subject = {
             year: req.body.year,
             semester: req.body.semester,
@@ -373,7 +378,7 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
             subject_name: req.body.subject_name,
             approved_status: "APPROVE",
             creater_name: req.name,
-            uid:req.uid
+            uid: req.uid
         }
     }
     const snapshot_subject = await db.collection('subjects').add(subject)
@@ -574,83 +579,213 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
         data: subjects
     })
 })
-//ลอง เขียน test relational db
-
-// app.get('/join/:user_id', async (req, res) => {
-
-//     //parameter user_id จาก url
-//     const user_id = req.params.user_id
-//     let snapshot_user = await db.collection('user_registration').where('user_id', '==', user_id).get()
-//     if (snapshot_user.empty) {
-//         res.status(404).json({
-//             message: "No Matching Document"
-//         })
-//     }
-//     else {
-//         let subject_data = {}
-//         const promises = []
-//         snapshot_user.forEach(docs => {
-//             let subject_id_fk = docs.data().subject_id
-//             promises.push(db.collection('subjects').doc(subject_id_fk).get())
-//         })
-//         const subjects = await Promise.all(promises)
-//         const arr = []
-//         subjects.forEach((rec) => {
-//             if (rec.data() !== undefined) {
-//                 subject_data = {
-//                     subject_id: rec.data().subject_id,
-//                     subject_name: rec.data().subject_name
-//                 }
-//                 arr.push(subject_data)
-//             }
-//         })
 
 
+//CRUD_YEAR V.1.0 
 
-//         return res.status(201).json({
-//             user_id: user_id,
-//             results: arr
-//         })
-//     }
-// })
+app.get('/getYear', check_admin, (req, res) => {
 
-app.get('/getSubject', async (req, res) => {
+   const promise = db.collection('semester_year').get()
+   let payload;
+   const semester_year = []
+   promise.then(result => {
+       result.forEach(doc => {
+           payload = {
+               id:doc.id,
+               year:doc.data().year,
+               semester:doc.data().semester,
+               status:doc.data().status
+           }
+           semester_year.push(payload)
+       })
+       return res.status(200).json({
+           message:"get Year Success",
+           status:{
+               dataStatus:'SUCCESS'
+           },
+           data:semester_year
+       })
+   })
+   promise.catch(err => {
+       return res.status(500).json({
+           message:err.message
+       })
+   })
+})
 
-    const subject = await db.collection('subjects').get()
+app.get('/getCurrentYear',check_admin_professor, async (req, res) => {
 
-    const collect = []
-
-    subject.forEach(doc => {
-        let sid = doc.id
-        collect.push(db.collection('subjects').doc(sid).collection('Time').get())
-    })
-
-    const subjects = await Promise.all(collect)
-
-    const arr = []
-
-    //  let subject_data = {}
-    // subject.forEach(rec => {
-    //     subject_data.subject_id = rec.data().subject_id,
-    //     subject_data.subject_name = rec.data().subject_name
-    //     arr.push(subject_data)
-    // })
-
-    subjects.forEach(docs => {
-        docs.forEach(rec => {
-            let subject_data = {
-                time: rec.data()
-            }
-            arr.push(subject_data)
+    const snapshot = await db.collection('semester_year').where('status', '==', 'ACTIVE').get()
+    let payload;
+    if (snapshot.empty) {
+        return res.status(404).json({
+            message: "No Document ...."
         })
-    })
-    res.json(arr)
+    }
+    else {
+        snapshot.forEach(result => {
+            payload = {
+                id: result.id,
+                year: result.data().year,
+                semester: result.data().semester,
+                status: result.data().status
+            }
+        })
+    }
 
-    // promise.forEach(docs => {
-    //     console.log(docs.data())
-    // })
+    return res.status(200).json({
+        message: "Get Success",
+        status: {
+            dataStatus: 'SUCCESS'
+        },
+        data: payload
+    })
+})
+
+app.post('/AddYear',check_admin,(req,res) => {
+
+    const promise_year = db.collection('semester_year').get()
+    promise_year.then(result => {
+        if(result.empty){
+           const add =  db.collection('semester_year').add({
+                year:req.body.year,
+                semester:req.body.semester,
+                status:'ACTIVE'
+            })
+            add.then(() => {
+                return res.status(201).json({
+                    message:"Add Success",
+                    status:{
+                        dataStatus:"SUCCESS"
+                    }
+                })
+            })
+            add.catch(err => {
+                return res.status(500).json({
+                    message:err.message
+                })
+            })
+        }
+        else{
+            db.collection('semester_year').add({
+                year:req.body.year,
+                semester:req.body.semester,
+                status:'DISABLE'
+            })
+            .then(() => {
+                return res.status(200).json({
+                    message:"Add Success",
+                    status:{
+                        dataStatus:"SUCCESS"
+                    }
+                })
+            })
+            .catch(err => {
+                return res.status(500).json({
+                    message:err.message
+                })
+            })
+        }
+    })
+})
+
+app.delete('/delYear/:id',check_admin,(req,res) => {
+
+    const id = req.params.id
+    const year_db = db.collection('semester_year').doc(id).get()
+    year_db.then(result => {
+        if(!result.exists){
+            return res.status(404).json({
+                message:"No Matching Document"
+            })
+        }
+        else{
+            db.collection('semester_year').doc(id).delete()
+            .then(() => {
+                return res.status(200).json({
+                    message:"Delete Success",
+                    status:{
+                        dataStatus:"SUCCESS"
+                    }
+                })
+            })
+            .catch(err => {
+                return res.status(500).json({
+                    message:err.message
+                })
+            })
+        }
+    })
 
 })
+
+app.put('/setCurrentYear/:id',check_admin,async (req,res) => {
+  
+    const id = req.params.id
+    const db_year = await db.collection('semester_year')
+    const check_year = await db_year.where('status','==','ACTIVE').get()
+    check_year.forEach(doc => {
+       db.collection('semester_year').doc(doc.id).update({
+           status:'DISABLE'
+       })
+    })
+
+    db.collection('semester_year').doc(id).update({
+        status:"ACTIVE"
+    })
+    .then(() => {
+        return res.status(200).json({
+            message:"Update Success",
+            status:{
+                dataStatus:"SUCCESS"
+            }
+        })
+    })
+})
+
+
+
+
+
+
+
+// app.get('/getSubject', async (req, res) => {
+
+//     const subject = await db.collection('subjects').get()
+
+//     const collect = []
+
+//     subject.forEach(doc => {
+//         let sid = doc.id
+//         collect.push(db.collection('subjects').doc(sid).collection('Time').get())
+//     })
+
+//     const subjects = await Promise.all(collect)
+
+//     const arr = []
+
+//     //  let subject_data = {}
+//     // subject.forEach(rec => {
+//     //     subject_data.subject_id = rec.data().subject_id,
+//     //     subject_data.subject_name = rec.data().subject_name
+//     //     arr.push(subject_data)
+//     // })
+
+//     subjects.forEach(docs => {
+//         docs.forEach(rec => {
+//             let subject_data = {
+//                 time: rec.data()
+//             }
+//             arr.push(subject_data)
+//         })
+//     })
+//     res.json(arr)
+
+//     // promise.forEach(docs => {
+//     //     console.log(docs.data())
+//     // })
+
+// })
 
 
 exports.api = functions.https.onRequest(app)
