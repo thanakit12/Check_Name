@@ -95,12 +95,12 @@ app.post('/register', async (req, res) => {
                     admin: true
                 };
             }
-            else if (req.body.role === 'LECTURER') {
+            else if (req.body.role === 'PROFESSOR') {
                 customClaims = {
                     professor: true
                 };
             }
-            else if (req.body.role === 'STUDENT') {
+            else if (req.body.role === 'NISIT') {
                 customClaims = {
                     nisit: true
                 }
@@ -345,7 +345,7 @@ const check_admin_professor = (req, res, next) => {
             })
             .catch(err => {
                 return res.status(500).json({
-                    message:err.message
+                    message: err.message
                 })
             })
     }
@@ -504,6 +504,7 @@ app.put('/rejectMulty', check_admin, async (req, res) => {
 
 //Open section  Deploy 27/1/2020
 
+// มีปัญหา
 app.post('/subject_register', permission_professor, (req, res) => {
 
     const time = []
@@ -581,39 +582,40 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
 })
 
 
-//CRUD_YEAR V.1.0 
+//CRUD_YEAR V.1.1 because edit in function post year handle data exists !!! 6/2/2020 deploy success
+
 
 app.get('/getYear', check_admin, (req, res) => {
 
-   const promise = db.collection('semester_year').get()
-   let payload;
-   const semester_year = []
-   promise.then(result => {
-       result.forEach(doc => {
-           payload = {
-               id:doc.id,
-               year:doc.data().year,
-               semester:doc.data().semester,
-               status:doc.data().status
-           }
-           semester_year.push(payload)
-       })
-       return res.status(200).json({
-           message:"get Year Success",
-           status:{
-               dataStatus:'SUCCESS'
-           },
-           data:semester_year
-       })
-   })
-   promise.catch(err => {
-       return res.status(500).json({
-           message:err.message
-       })
-   })
+    const promise = db.collection('semester_year').get()
+    let payload;
+    const semester_year = []
+    promise.then(result => {
+        result.forEach(doc => {
+            payload = {
+                id: doc.id,
+                year: doc.data().year,
+                semester: doc.data().semester,
+                status: doc.data().status
+            }
+            semester_year.push(payload)
+        })
+        return res.status(200).json({
+            message: "get Year Success",
+            status: {
+                dataStatus: 'SUCCESS'
+            },
+            data: semester_year
+        })
+    })
+    promise.catch(err => {
+        return res.status(500).json({
+            message: err.message
+        })
+    })
 })
 
-app.get('/getCurrentYear',check_admin_professor, async (req, res) => {
+app.get('/getCurrentYear', check_admin_professor, async (req, res) => {
 
     const snapshot = await db.collection('semester_year').where('status', '==', 'ACTIVE').get()
     let payload;
@@ -642,105 +644,120 @@ app.get('/getCurrentYear',check_admin_professor, async (req, res) => {
     })
 })
 
-app.post('/AddYear',check_admin,(req,res) => {
+app.post('/AddYear', check_admin, async (req, res) => {
 
-    const promise_year = db.collection('semester_year').get()
-    promise_year.then(result => {
-        if(result.empty){
-           const add =  db.collection('semester_year').add({
-                year:req.body.year,
-                semester:req.body.semester,
-                status:'ACTIVE'
+    let isexist = false;
+    const check = await db.collection('semester_year').where('year', '==', req.body.year).where('semester', '==', req.body.semester).get()
+        .then(result => {
+            result.forEach(doc => {
+                console.log(doc.data())
+                isexist = true
             })
-            add.then(() => {
-                return res.status(201).json({
-                    message:"Add Success",
-                    status:{
-                        dataStatus:"SUCCESS"
-                    }
+        })
+    if (isexist) {
+        return res.status(500).json({
+            message: "Don't Add because data is exists !!!"
+        })
+    }
+    else {
+        const promise_year = db.collection('semester_year').get()
+        promise_year.then(result => {
+            if (result.empty) {
+                const add = db.collection('semester_year').add({
+                    year: req.body.year,
+                    semester: req.body.semester,
+                    status: 'ACTIVE'
                 })
-            })
-            add.catch(err => {
-                return res.status(500).json({
-                    message:err.message
+                add.then(() => {
+                    return res.status(201).json({
+                        message: "Add Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        }
+                    })
                 })
-            })
-        }
-        else{
-            db.collection('semester_year').add({
-                year:req.body.year,
-                semester:req.body.semester,
-                status:'DISABLE'
-            })
-            .then(() => {
-                return res.status(200).json({
-                    message:"Add Success",
-                    status:{
-                        dataStatus:"SUCCESS"
-                    }
+                add.catch(err => {
+                    return res.status(500).json({
+                        message: err.message
+                    })
                 })
-            })
-            .catch(err => {
-                return res.status(500).json({
-                    message:err.message
+            }
+            else {
+                db.collection('semester_year').add({
+                    year: req.body.year,
+                    semester: req.body.semester,
+                    status: 'DISABLE'
                 })
-            })
-        }
-    })
+                .then(() => {
+                    return res.status(200).json({
+                            message: "Add Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    })
+                .catch(err => {
+                    return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+                 }
+        })
+    }
 })
 
-app.delete('/delYear/:id',check_admin,(req,res) => {
+app.delete('/delYear/:id', check_admin, (req, res) => {
 
     const id = req.params.id
     const year_db = db.collection('semester_year').doc(id).get()
     year_db.then(result => {
-        if(!result.exists){
+        if (!result.exists) {
             return res.status(404).json({
-                message:"No Matching Document"
+                message: "No Matching Document"
             })
         }
-        else{
+        else {
             db.collection('semester_year').doc(id).delete()
-            .then(() => {
-                return res.status(200).json({
-                    message:"Delete Success",
-                    status:{
-                        dataStatus:"SUCCESS"
-                    }
+                .then(() => {
+                    return res.status(200).json({
+                        message: "Delete Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        }
+                    })
                 })
-            })
-            .catch(err => {
-                return res.status(500).json({
-                    message:err.message
+                .catch(err => {
+                    return res.status(500).json({
+                        message: err.message
+                    })
                 })
-            })
         }
     })
 
 })
 
-app.put('/setCurrentYear/:id',check_admin,async (req,res) => {
-  
+app.put('/setCurrentYear/:id', check_admin, async (req, res) => {
+
     const id = req.params.id
     const db_year = await db.collection('semester_year')
-    const check_year = await db_year.where('status','==','ACTIVE').get()
+    const check_year = await db_year.where('status', '==', 'ACTIVE').get()
     check_year.forEach(doc => {
-       db.collection('semester_year').doc(doc.id).update({
-           status:'DISABLE'
-       })
+        db.collection('semester_year').doc(doc.id).update({
+            status: 'DISABLE'
+        })
     })
 
     db.collection('semester_year').doc(id).update({
-        status:"ACTIVE"
+        status: "ACTIVE"
     })
-    .then(() => {
-        return res.status(200).json({
-            message:"Update Success",
-            status:{
-                dataStatus:"SUCCESS"
-            }
+        .then(() => {
+            return res.status(200).json({
+                message: "Update Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                }
+            })
         })
-    })
 })
 
 
