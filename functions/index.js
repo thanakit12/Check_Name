@@ -650,7 +650,6 @@ app.post('/AddYear', check_admin, async (req, res) => {
     const check = await db.collection('semester_year').where('year', '==', req.body.year).where('semester', '==', req.body.semester).get()
         .then(result => {
             result.forEach(doc => {
-                console.log(doc.data())
                 isexist = true
             })
         })
@@ -759,7 +758,6 @@ app.put('/setCurrentYear/:id', check_admin, async (req, res) => {
             })
         })
 })
-
 
 
 
