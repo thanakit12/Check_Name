@@ -550,6 +550,7 @@ app.post('/subject_register', permission_professor, (req, res) => {
 })
 
 //Professor get subjects
+// 8/2/2020 add delete section function and edit return techer_name in getSubjects 
 app.get('/getSubjects', permission_professor, async (req, res) => {
 
     const subjects = []
@@ -569,7 +570,8 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
             time_absent: doc.data().time_absent,
             time_late: doc.data().time_late,
             total_mark: doc.data().total_mark,
-            status: doc.data().status
+            status: doc.data().status,
+            teacher_name:doc.data().teacher_name
         })
     })
     return res.status(200).json({
@@ -581,6 +583,33 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
     })
 })
 
+app.delete('/deleteSection/:id',permission_professor,async (req,res) => {
+
+    const sec_id = req.params.id
+    const check = await db.collection('section_subject').doc(sec_id).get()
+    if(check.exists){
+        db.collection('section_subject').doc(sec_id).delete()
+        .then(() => {
+            return res.status(200).json({
+                message:"Delete Section Success",
+                status:{
+                    dataStatus:"SUCCESS"
+                }
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message:err.message
+            })
+        })
+    }
+    else{
+        return res.status(404).json({
+            message:"No Matching Document"
+        })
+    }
+
+})
 
 //CRUD_YEAR V.1.1 because edit in function post year handle data exists !!! 6/2/2020 deploy success
 
