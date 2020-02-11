@@ -450,30 +450,30 @@ app.delete('/reject/:id', check_admin, (req, res) => {
 
     const subject_id = req.params.id
     db.collection('subjects').doc(subject_id).get()
-    .then(result => {
-        if(result.exists){
-            db.collection('subjects').doc(subject_id).delete()
-            .then(() => {
-                return res.status(200).json({
-                    message: "Reject Success",
-                    status: {
-                        dataStatus: "SUCCESS"
-                    }
+        .then(result => {
+            if (result.exists) {
+                db.collection('subjects').doc(subject_id).delete()
+                    .then(() => {
+                        return res.status(200).json({
+                            message: "Reject Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document"
                 })
-            })
-            .catch(err => {
-                return res.status(500).json({
-                    message: err.message
-                })
-            })
-        }
-        else{
-            return res.status(404).json({
-                message:"No Matching Document"
-            })
-        }
-    })
-   
+            }
+        })
+
 })
 
 //Admin Approve multi v.1.0.0
@@ -508,37 +508,37 @@ app.delete('/rejectMulty', check_admin, async (req, res) => {
     })
 })
 
-app.delete('/delSubject/:id',check_admin,async (req,res) => {
+app.delete('/delSubject/:id', check_admin, async (req, res) => {
 
     const subject_id = req.params.id
 
     db.collection('subjects').doc(subject_id).get()
-    .then(async result => {
-        if(result.exists){
-            try{
-            const subject = await db.collection('subjects')
-            const del = subject.doc(subject_id).delete()
-            .then(() => {
-                return res.status(200).json({
-                    message:"Delete Subject Success",
-                    status:{
-                        dataStatus:"SUCCESS"
-                    }
-                })
-            })
+        .then(async result => {
+            if (result.exists) {
+                try {
+                    const subject = await db.collection('subjects')
+                    const del = subject.doc(subject_id).delete()
+                        .then(() => {
+                            return res.status(200).json({
+                                message: "Delete Subject Success",
+                                status: {
+                                    dataStatus: "SUCCESS"
+                                }
+                            })
+                        })
+                }
+                catch (err) {
+                    return res.status(500).json({
+                        message: err.message
+                    })
+                }
             }
-            catch(err){
-                return res.status(500).json({
-                    message:err.message
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document "
                 })
             }
-        }
-        else{
-            return res.status(404).json({
-                message:"No Matching Document "
-            })
-        }
-    })
+        })
 })
 
 
@@ -548,60 +548,63 @@ app.delete('/delSubject/:id',check_admin,async (req,res) => {
 app.post('/subject_register', permission_professor, async (req, res) => {
 
     let isexist;
-    const check = await db.collection('section_subject').where(new admin.firestore.FieldPath('Subject', 'subject_code'), '==', req.body.Subject.subject_code).get()
-
-    if (!check.empty) {
-        check.forEach(doc => {
-            isexist = true;
-        })
-    }
-
-    if (isexist) {
-        return res.status(500).json({
-            message: "Can't Add Data Beacause Data is Exists "
-        })
-    }
-    else {
-        const time = []
-        if (req.body.Time.length > 0) {
-            for (let i = 0; i < req.body.Time.length; i++) {
-                time.push(req.body.Time[i])
-            }
-        }
-        const data = {
-            Year: {
-                year: req.body.year,
-                semester: req.body.semester
-            },
-            Subject: {
-                subject_code: req.body.Subject.subject_code,
-                subject_name: req.body.Subject.subject_name,
-                approved_status: req.body.Subject.approved_status
-            },
-            section_number: req.body.section_number,
-            time_late: req.body.time_late,
-            time_absent: req.body.time_absent,
-            total_mark: req.body.total_mark,
-            teacher_name: req.name,
-            teacher_id: req.user_id,
-            status: 'ACTIVE'
-        }
-        data.Time = time
-        db.collection('section_subject').add(data)
-            .then(() => {
-                return res.status(201).json({
-                    message: "Add Success",
-                    status: {
-                        dataStatus: "SUCCESS"
-                    }
-                })
+    db.collection('section_subject')
+        .where(new admin.firestore.FieldPath('Subject', 'subject_code'), '==', req.body.Subject.subject_code)
+        .get()
+        .then(result => {
+            result.forEach(doc => {
+                const section_number = doc.data().section_number
+                if (section_number == req.body.section_number) {
+                    isexist = true;
+                }
             })
-            .catch(err => {
+            if (isexist) {
                 return res.status(500).json({
-                    message: err.message
+                    message: "Can't add data because data is exists!!!"
                 })
-            })
-    }
+            }
+            else {
+                const time = []
+                if (req.body.Time.length > 0) {
+                    for (let i = 0; i < req.body.Time.length; i++) {
+                        time.push(req.body.Time[i])
+                    }
+                }
+                const data = {
+                    Year: {
+                        year: req.body.year,
+                        semester: req.body.semester
+                    },
+                    Subject: {
+                        subject_code: req.body.Subject.subject_code,
+                        subject_name: req.body.Subject.subject_name,
+                        approved_status: req.body.Subject.approved_status
+                    },
+                    section_number: req.body.section_number,
+                    time_late: req.body.time_late,
+                    time_absent: req.body.time_absent,
+                    total_mark: req.body.total_mark,
+                    teacher_name: req.name,
+                    teacher_id: req.user_id,
+                    status: 'ACTIVE'
+                }
+                data.Time = time
+                db.collection('section_subject').add(data)
+                    .then(() => {
+                        return res.status(201).json({
+                            message: "Add Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+        })
 })
 
 app.get('/getSection/:id', permission_professor, (req, res) => {
@@ -642,6 +645,7 @@ app.get('/getSection/:id', permission_professor, (req, res) => {
         })
 })
 
+//deploy
 
 app.put('/updateSection/:id', permission_professor, async (req, res) => {
     const section_id = req.params.id
@@ -656,6 +660,7 @@ app.put('/updateSection/:id', permission_professor, async (req, res) => {
             }
             else {
                 db.collection('section_subject').doc(section_id).update({
+                    Time:req.body.Time,
                     time_absent: req.body.time_absent,
                     time_late: req.body.time_late,
                     total_mark: req.body.total_mark
@@ -958,7 +963,7 @@ const nisit_permission = (req, res, next) => {
 }
 
 
-//ยังไม่ deploy subjectRegister กับ listSStudent
+
 app.post('/subjectRegister', nisit_permission, (req, res) => {
 
     const uid = req.user_id
@@ -982,50 +987,140 @@ app.post('/subjectRegister', nisit_permission, (req, res) => {
         })
 })
 
-// app.get('/listSecStudent/:id', permission_professor, async (req, res) => {
+app.get('/listSecStudent/:id', permission_professor, async (req, res) => {
 
-//     const sec_id = req.params.id
-//     const promise = []
-//     const result = []
+    const sec_id = req.params.id
+    const promise = []
+    const result = []
 
-//     const snapshot = await db.collection('user_registration').where('section_id', '==', sec_id).get()
+    const snapshot = await db.collection('user_registration').where('section_id', '==', sec_id).get()
 
-//     if (snapshot.empty) {
-//         return res.status(404).json({
-//             message: "No User Register In ection"
-//         })
-//     }
-//     else {
-//         snapshot.forEach(doc => {
-//             promise.push({
-//                 id: doc.id,
-//                 uid: doc.data().uid,
-//                 section_id: doc.data().section_id,
-//                 status: doc.data().status
+    if (snapshot.empty) {
+        return res.status(404).json({
+            message: "No User Register In section"
+        })
+    }
+    else {
+        snapshot.forEach(doc => {
+            promise.push({
+                id: doc.id,
+                uid: doc.data().uid,
+                section_id: doc.data().section_id,
+                status: doc.data().status
+            })
+        })
+
+        const snapshot_user = await db.collection('users').get()
+        snapshot_user.forEach(user => {
+            promise.forEach(pro => {
+                if (user.id === pro.uid) {
+                    result.push({
+                        id: pro.id,
+                        section_id: pro.section_id,
+                        std_id: user.data().id,
+                        firstname: user.data().firstname,
+                        lastname: user.data().lastname,
+                        email: user.data().email,
+                        status: pro.status
+                    })
+                }
+            })
+        })
+        return res.status(200).json({
+            message: "Success",
+            data: result
+        })
+    }
+})
+
+
+
+
+//CRUD_BEACON
+
+// app.post('/createBeacon', check_admin, async (req, res) => {
+
+//     let isexist;
+
+//     db.collection('beacon')
+//         .where('uuid', '==', req.body.uuid)
+//         .get()
+//         .then(result => {
+//             result.forEach(doc => {
+//                 isexist = true;
 //             })
+//             if (isexist) {
+//                 return res.status(500).json({
+//                     message: "Cannot Add Data Because Data is exists "
+//                 })
+//             }
+//             else {
+//                 db.collection('beacon').add({
+//                     uuid: req.body.uuid,
+//                     major: req.body.major,
+//                     minor: req.body.minor,
+//                     name: req.body.name
+//                 })
+//                 return res.status(201).json({
+//                     message: "Add Beacon Success",
+//                     status: {
+//                         dataStatus: "SUCCESS"
+//                     }
+//                 })
+//             }
 //         })
-
-//         const snapshot_user = await db.collection('users').get()
-//         snapshot_user.forEach(user => {
-//             promise.forEach(pro => {
-//                 if (user.id === pro.uid) {
-//                     result.push({
-//                         id: pro.id,
-//                         section_id: pro.section_id,
-//                         std_id: user.data().id,
-//                         firstname: user.data().firstname,
-//                         lastname: user.data().lastname,
-//                         email: user.data().email,
-//                         status: pro.status
-//                     })
-//                 }
-//             })
-//         })
-//         return res.status(200).json({
-//             message: "Success",
-//             data: result
-//         })
-//     }
 // })
 
+// app.get('/getBeacon/:id', check_admin_professor, (req, res) => {
+
+//     const beacon_id = req.params.id
+
+//     db.collection('beacon').doc(beacon_id).get()
+//         .then(result => {
+//             return res.status(200).json({
+//                 message: "Get Beacon Success",
+//                 status: {
+//                     dataStatus: "SUCCESS"
+//                 },
+//                 data: result.data()
+//             })
+//         })
+//         .catch(err => {
+//             return res.status(500).json({
+//                 message: err.message
+//             })
+//         })
+// })
+
+// app.get('/listBeacon', check_admin_professor, (req, res) => {
+
+//     const beacon = []
+//     db.collection('beacon').get()
+//         .then(result => {
+//             result.forEach(doc => {
+//                 beacon.push({
+//                     id: doc.id,
+//                     name: doc.data().name,
+//                     major:doc.data().major,
+//                     minor:doc.data().minor,
+//                     uuid: doc.data().uuid
+//                 })
+//             })
+//             return beacon;
+//         })
+//         .then(beacon => {
+//             return res.status(200).json({
+//                 message: "Get List Beacon Success",
+//                 status: {
+//                     dataStatus: "SUCCESS"
+//                 },
+//                 data: beacon
+//             })
+//         })
+//         .catch(err => {
+//             return res.status(500).json({
+//                 message:err.message
+//             })
+//         })
+// })
 exports.api = functions.https.onRequest(app)
