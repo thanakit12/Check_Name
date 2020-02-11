@@ -1035,92 +1035,109 @@ app.get('/listSecStudent/:id', permission_professor, async (req, res) => {
 
 
 
-
+  
 //CRUD_BEACON
+//Deploy 
 
-// app.post('/createBeacon', check_admin, async (req, res) => {
+app.post('/createBeacon', check_admin, async (req, res) => {
 
-//     let isexist;
+    let isexist;
 
-//     db.collection('beacon')
-//         .where('uuid', '==', req.body.uuid)
-//         .get()
-//         .then(result => {
-//             result.forEach(doc => {
-//                 isexist = true;
-//             })
-//             if (isexist) {
-//                 return res.status(500).json({
-//                     message: "Cannot Add Data Because Data is exists "
-//                 })
-//             }
-//             else {
-//                 db.collection('beacon').add({
-//                     uuid: req.body.uuid,
-//                     major: req.body.major,
-//                     minor: req.body.minor,
-//                     name: req.body.name
-//                 })
-//                 return res.status(201).json({
-//                     message: "Add Beacon Success",
-//                     status: {
-//                         dataStatus: "SUCCESS"
-//                     }
-//                 })
-//             }
-//         })
-// })
+    db.collection('beacon')
+        .where('uuid', '==', req.body.uuid)
+        .get()
+        .then(result => {
+            result.forEach(doc => {
+                isexist = true;
+            })
+            if (isexist) {
+                return res.status(500).json({
+                    message: "Cannot Add Data Because Data is exists "
+                })
+            }
+            else {
+                db.collection('beacon').add({
+                    uuid: req.body.uuid,
+                    major: req.body.major,
+                    minor: req.body.minor,
+                    name: req.body.name
+                })
+                return res.status(201).json({
+                    message: "Add Beacon Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
+                })
+            }
+        })
+})
 
-// app.get('/getBeacon/:id', check_admin_professor, (req, res) => {
+app.get('/getBeacon/:id', check_admin_professor, (req, res) => {
 
-//     const beacon_id = req.params.id
+    const beacon_id = req.params.id
 
-//     db.collection('beacon').doc(beacon_id).get()
-//         .then(result => {
-//             return res.status(200).json({
-//                 message: "Get Beacon Success",
-//                 status: {
-//                     dataStatus: "SUCCESS"
-//                 },
-//                 data: result.data()
-//             })
-//         })
-//         .catch(err => {
-//             return res.status(500).json({
-//                 message: err.message
-//             })
-//         })
-// })
+    db.collection('beacon').doc(beacon_id).get()
+        .then(result => {
+            return res.status(200).json({
+                message: "Get Beacon Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                },
+                data: result.data()
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+})
 
-// app.get('/listBeacon', check_admin_professor, (req, res) => {
+app.get('/listBeacon', check_admin_professor, (req, res) => {
 
-//     const beacon = []
-//     db.collection('beacon').get()
-//         .then(result => {
-//             result.forEach(doc => {
-//                 beacon.push({
-//                     id: doc.id,
-//                     name: doc.data().name,
-//                     major:doc.data().major,
-//                     minor:doc.data().minor,
-//                     uuid: doc.data().uuid
-//                 })
-//             })
-//             return beacon;
-//         })
-//         .then(beacon => {
-//             return res.status(200).json({
-//                 message: "Get List Beacon Success",
-//                 status: {
-//                     dataStatus: "SUCCESS"
-//                 },
-//                 data: beacon
-//             })
-//         })
-//         .catch(err => {
-//             return res.status(500).json({
-//                 message:err.message
-//             })
-//         })
-// })
+    const beacon = []
+    db.collection('beacon').get()
+        .then(result => {
+            result.forEach(doc => {
+                beacon.push({
+                    id: doc.id,
+                    name: doc.data().name,
+                    major:doc.data().major,
+                    minor:doc.data().minor,
+                    uuid: doc.data().uuid
+                })
+            })
+            return beacon;
+        })
+        .then(beacon => {
+            return res.status(200).json({
+                message: "Get List Beacon Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                },
+                data: beacon
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message:err.message
+            })
+        })
+})
+
+app.delete('/deleteBeacon/:id',check_admin,(req,res) => {
+
+    const beacon_id = req.params.id
+
+    db.collection('beacon').doc(beacon_id).delete()
+    .then(() => {
+        return res.status(200).json({
+            message:"Delete Beacon Success",
+            status:{
+                dataStatus:"SUCCESS"
+            }
+        })
+    })
+
+})
 exports.api = functions.https.onRequest(app)
