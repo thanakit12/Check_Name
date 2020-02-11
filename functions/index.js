@@ -445,26 +445,35 @@ app.put('/approve/:id', check_admin, (req, res) => {
 })
 
 //Admin Reject 
-
-app.put('/reject/:id', check_admin, (req, res) => {
+//edit reject and rejectmulty and add delete function subject
+app.delete('/reject/:id', check_admin, (req, res) => {
 
     const subject_id = req.params.id
-    db.collection('subjects').doc(subject_id).update({
-        approved_status: "REJECT"
+    db.collection('subjects').doc(subject_id).get()
+    .then(result => {
+        if(result.exists){
+            db.collection('subjects').doc(subject_id).delete()
+            .then(() => {
+                return res.status(200).json({
+                    message: "Reject Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
+                })
+            })
+            .catch(err => {
+                return res.status(500).json({
+                    message: err.message
+                })
+            })
+        }
+        else{
+            return res.status(404).json({
+                message:"No Matching Document"
+            })
+        }
     })
-        .then(() => {
-            return res.status(200).json({
-                message: "Reject Success",
-                status: {
-                    dataStatus: "SUCCESS"
-                }
-            })
-        })
-        .catch(err => {
-            return res.status(500).json({
-                message: err.message
-            })
-        })
+   
 })
 
 //Admin Approve multi v.1.0.0
@@ -485,13 +494,11 @@ app.put('/approveMulty', check_admin, async (req, res) => {
 })
 
 //rejectMulty v.1.0.0
-app.put('/rejectMulty', check_admin, async (req, res) => {
+app.delete('/rejectMulty', check_admin, async (req, res) => {
 
     const reject_ids = req.body.reject_ids
     for (let i = 0; i < reject_ids.length; i++) {
-        db.collection('subjects').doc(reject_ids[i]).update({
-            approved_status: "REJECT"
-        })
+        db.collection('subjects').doc(reject_ids[i]).delete()
     }
     return res.status(200).json({
         message: "Reject Success",
@@ -501,46 +508,132 @@ app.put('/rejectMulty', check_admin, async (req, res) => {
     })
 })
 
+app.delete('/delSubject/:id',check_admin,async (req,res) => {
+
+    const subject_id = req.params.id
+
+    db.collection('subjects').doc(subject_id).get()
+    .then(async result => {
+        if(result.exists){
+            try{
+            const subject = await db.collection('subjects')
+            const del = subject.doc(subject_id).delete()
+            .then(() => {
+                return res.status(200).json({
+                    message:"Delete Subject Success",
+                    status:{
+                        dataStatus:"SUCCESS"
+                    }
+                })
+            })
+            }
+            catch(err){
+                return res.status(500).json({
+                    message:err.message
+                })
+            }
+        }
+        else{
+            return res.status(404).json({
+                message:"No Matching Document "
+            })
+        }
+    })
+})
+
 
 //Open section  Deploy 27/1/2020
 
-// มีปัญหา
-app.post('/subject_register', permission_professor, (req, res) => {
 
-    const time = []
-    if (req.body.Time.length > 0) {
-        for (let i = 0; i < req.body.Time.length; i++) {
-            time.push(req.body.Time[i])
+app.post('/subject_register', permission_professor, async (req, res) => {
+
+    let isexist;
+    const check = await db.collection('section_subject').where(new admin.firestore.FieldPath('Subject', 'subject_code'), '==', req.body.Subject.subject_code).get()
+
+    if (!check.empty) {
+        check.forEach(doc => {
+            isexist = true;
+        })
+    }
+
+    if (isexist) {
+        return res.status(500).json({
+            message: "Can't Add Data Beacause Data is Exists "
+        })
+    }
+    else {
+        const time = []
+        if (req.body.Time.length > 0) {
+            for (let i = 0; i < req.body.Time.length; i++) {
+                time.push(req.body.Time[i])
+            }
         }
-    }
-    const data = {
-        Year: {
-            year: req.body.year,
-            semester: req.body.semester
-        },
-        Subject: {
-            subject_code: req.body.Subject.subject_code,
-            subject_name: req.body.Subject.subject_name,
-            approved_status: req.body.Subject.approved_status
-        },
-        section_number: req.body.section_number,
-        time_late: req.body.time_late,
-        time_absent: req.body.time_absent,
-        total_mark: req.body.total_mark,
-        teacher_name: req.name,
-        teacher_id: req.user_id,
-        status: 'ACTIVE'
-    }
-    console.log(req.user_id)
-    data.Time = time
-    db.collection('section_subject').add(data)
-        .then(() => {
-            return res.status(201).json({
-                message: "Add Success",
-                status: {
-                    dataStatus: "SUCCESS"
-                }
+        const data = {
+            Year: {
+                year: req.body.year,
+                semester: req.body.semester
+            },
+            Subject: {
+                subject_code: req.body.Subject.subject_code,
+                subject_name: req.body.Subject.subject_name,
+                approved_status: req.body.Subject.approved_status
+            },
+            section_number: req.body.section_number,
+            time_late: req.body.time_late,
+            time_absent: req.body.time_absent,
+            total_mark: req.body.total_mark,
+            teacher_name: req.name,
+            teacher_id: req.user_id,
+            status: 'ACTIVE'
+        }
+        data.Time = time
+        db.collection('section_subject').add(data)
+            .then(() => {
+                return res.status(201).json({
+                    message: "Add Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
+                })
             })
+            .catch(err => {
+                return res.status(500).json({
+                    message: err.message
+                })
+            })
+    }
+})
+
+app.get('/getSection/:id', permission_professor, (req, res) => {
+
+    const section_id = req.params.id
+    db.collection('section_subject').doc(section_id).get()
+        .then(doc => {
+            if (doc.exists) {
+                return res.status(200).json({
+                    message: "Get Section Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: {
+                        section_id: doc.id,
+                        Year: doc.data().Year,
+                        section_number: doc.data().section_number,
+                        Subject: doc.data().Subject,
+                        Time: doc.data().Time,
+                        time_absent: doc.data().time_absent,
+                        time_late: doc.data().time_late,
+                        total_mark: doc.data().total_mark,
+                        status: doc.data().status,
+                        teacher_name: doc.data().teacher_name
+                    }
+                })
+            }
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document "
+                })
+            }
         })
         .catch(err => {
             return res.status(500).json({
@@ -549,67 +642,117 @@ app.post('/subject_register', permission_professor, (req, res) => {
         })
 })
 
-//Professor get subjects
-// 8/2/2020 add delete section function and edit return techer_name in getSubjects 
-app.get('/getSubjects', permission_professor, async (req, res) => {
 
-    const subjects = []
-    const snapshot_subject = await db.collection('section_subject').where('teacher_id', '==', req.user_id).get()
-    if (snapshot_subject.empty) {
+app.put('/updateSection/:id', permission_professor, async (req, res) => {
+    const section_id = req.params.id
+
+    db.collection('section_subject').doc(section_id).get()
+        .then(result => {
+            const uid = result.data().teacher_id
+            if (req.user_id !== uid) {
+                return res.status(403).json({
+                    message: "You Don't have permission in this request "
+                })
+            }
+            else {
+                db.collection('section_subject').doc(section_id).update({
+                    time_absent: req.body.time_absent,
+                    time_late: req.body.time_late,
+                    total_mark: req.body.total_mark
+                })
+                return res.status(200).json({
+                    message: "Update Section Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
+                })
+            }
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+})
+
+app.delete('/deleteSection/:id', permission_professor, async (req, res) => {
+
+    const sec_id = req.params.id
+    const check = await db.collection('section_subject').doc(sec_id).get()
+    if (check.exists) {
+        db.collection('section_subject').doc(sec_id).delete()
+            .then(() => {
+                return res.status(200).json({
+                    message: "Delete Section Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
+                })
+            })
+            .catch(err => {
+                return res.status(500).json({
+                    message: err.message
+                })
+            })
+    }
+    else {
         return res.status(404).json({
             message: "No Matching Document"
         })
     }
-    snapshot_subject.forEach(doc => {
-        subjects.push({
-            id: doc.id,
-            Year: doc.data().Year,
-            section_number: doc.data().section_number,
-            Subject: doc.data().Subject,
-            Time: doc.data().Time,
-            time_absent: doc.data().time_absent,
-            time_late: doc.data().time_late,
-            total_mark: doc.data().total_mark,
-            status: doc.data().status,
-            teacher_name:doc.data().teacher_name
-        })
-    })
-    return res.status(200).json({
-        message: "Get Success",
-        status: {
-            dataStatus: "SUCCESS"
-        },
-        data: subjects
-    })
+
 })
 
-app.delete('/deleteSection/:id',permission_professor,async (req,res) => {
 
-    const sec_id = req.params.id
-    const check = await db.collection('section_subject').doc(sec_id).get()
-    if(check.exists){
-        db.collection('section_subject').doc(sec_id).delete()
-        .then(() => {
+
+//Professor get subjects
+// 8/2/2020 add delete section function and edit return techer_name in getSubjects 
+// 10/2/2020 edit in getsubjects
+app.get('/getSubjects', permission_professor, async (req, res) => {
+
+    const subjects = []
+    const year = req.query.year
+    const semester = req.query.semester
+    db.collection('section_subject')
+        .where('teacher_id', '==', req.user_id)
+        .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+        .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
+        .get()
+        .then(snapshot_subjects => {
+            if (snapshot_subjects.empty) {
+                return res.status(404).json({
+                    message: "No Matching Document"
+                })
+            }
+            snapshot_subjects.forEach(doc => {
+                subjects.push({
+                    id: doc.id,
+                    Year: doc.data().Year,
+                    section_number: doc.data().section_number,
+                    Subject: doc.data().Subject,
+                    Time: doc.data().Time,
+                    time_absent: doc.data().time_absent,
+                    time_late: doc.data().time_late,
+                    total_mark: doc.data().total_mark,
+                    status: doc.data().status,
+                    teacher_name: doc.data().teacher_name
+                })
+            })
             return res.status(200).json({
-                message:"Delete Section Success",
-                status:{
-                    dataStatus:"SUCCESS"
-                }
+                message: "Get Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                },
+                data: subjects
             })
         })
         .catch(err => {
-            return res.status(500).json({
-                message:err.message
-            })
+            console.log(err.message)
         })
-    }
-    else{
-        return res.status(404).json({
-            message:"No Matching Document"
-        })
-    }
 
 })
+
+
 
 //CRUD_YEAR V.1.1 because edit in function post year handle data exists !!! 6/2/2020 deploy success
 
@@ -716,20 +859,20 @@ app.post('/AddYear', check_admin, async (req, res) => {
                     semester: req.body.semester,
                     status: 'DISABLE'
                 })
-                .then(() => {
-                    return res.status(200).json({
+                    .then(() => {
+                        return res.status(200).json({
                             message: "Add Success",
                             status: {
                                 dataStatus: "SUCCESS"
                             }
                         })
                     })
-                .catch(err => {
-                    return res.status(500).json({
+                    .catch(err => {
+                        return res.status(500).json({
                             message: err.message
                         })
                     })
-                 }
+            }
         })
     }
 })
@@ -790,46 +933,99 @@ app.put('/setCurrentYear/:id', check_admin, async (req, res) => {
 
 
 
+//Nisit register subject
+
+const nisit_permission = (req, res, next) => {
+    if (req.headers.token === undefined) {
+        return res.status(401).json({ message: "Please insert token" })
+    }
+    else {
+        const token = req.headers.token
+        admin.auth().verifyIdToken(token).then(claim => {
+            if (claim.nisit === true) {
+                req.name = claim.name
+                req.user_id = claim.user_id
+                next()
+            }
+            else {
+                return res.status(403).json({ message: "You don't have permission" })
+            }
+        })
+            .catch(err => {
+                res.status(500).json({ message: "Error: " + err.message })
+            })
+    }
+}
 
 
+//ยังไม่ deploy subjectRegister กับ listSStudent
+app.post('/subjectRegister', nisit_permission, (req, res) => {
 
-// app.get('/getSubject', async (req, res) => {
+    const uid = req.user_id
+    db.collection('user_registration').add({
+        uid: uid,
+        section_id: req.body.section_id,
+        status: "PENDING"
+    })
+        .then(() => {
+            return res.status(201).json({
+                message: "Register Subject Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                }
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+})
 
-//     const subject = await db.collection('subjects').get()
+// app.get('/listSecStudent/:id', permission_professor, async (req, res) => {
 
-//     const collect = []
+//     const sec_id = req.params.id
+//     const promise = []
+//     const result = []
 
-//     subject.forEach(doc => {
-//         let sid = doc.id
-//         collect.push(db.collection('subjects').doc(sid).collection('Time').get())
-//     })
+//     const snapshot = await db.collection('user_registration').where('section_id', '==', sec_id).get()
 
-//     const subjects = await Promise.all(collect)
-
-//     const arr = []
-
-//     //  let subject_data = {}
-//     // subject.forEach(rec => {
-//     //     subject_data.subject_id = rec.data().subject_id,
-//     //     subject_data.subject_name = rec.data().subject_name
-//     //     arr.push(subject_data)
-//     // })
-
-//     subjects.forEach(docs => {
-//         docs.forEach(rec => {
-//             let subject_data = {
-//                 time: rec.data()
-//             }
-//             arr.push(subject_data)
+//     if (snapshot.empty) {
+//         return res.status(404).json({
+//             message: "No User Register In ection"
 //         })
-//     })
-//     res.json(arr)
+//     }
+//     else {
+//         snapshot.forEach(doc => {
+//             promise.push({
+//                 id: doc.id,
+//                 uid: doc.data().uid,
+//                 section_id: doc.data().section_id,
+//                 status: doc.data().status
+//             })
+//         })
 
-//     // promise.forEach(docs => {
-//     //     console.log(docs.data())
-//     // })
-
+//         const snapshot_user = await db.collection('users').get()
+//         snapshot_user.forEach(user => {
+//             promise.forEach(pro => {
+//                 if (user.id === pro.uid) {
+//                     result.push({
+//                         id: pro.id,
+//                         section_id: pro.section_id,
+//                         std_id: user.data().id,
+//                         firstname: user.data().firstname,
+//                         lastname: user.data().lastname,
+//                         email: user.data().email,
+//                         status: pro.status
+//                     })
+//                 }
+//             })
+//         })
+//         return res.status(200).json({
+//             message: "Success",
+//             data: result
+//         })
+//     }
 // })
-
 
 exports.api = functions.https.onRequest(app)
