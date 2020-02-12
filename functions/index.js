@@ -541,6 +541,63 @@ app.delete('/delSubject/:id', check_admin, async (req, res) => {
         })
 })
 
+//add get subject and update subject
+
+app.get('/getSubject/:id', check_admin, (req, res) => {
+
+    const subject_id = req.params.id
+
+    db.collection('subjects').doc(subject_id).get()
+        .then(result => {
+            if (result.exists) {
+                return res.status(200).json({
+                    message: "Get Subject Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: {
+                        id: result.id,
+                        subject_name: result.data().subject_name,
+                        subject_code: result.data().subject_code,
+                        creater_name: result.data().creater_name,
+                        semester: result.data().semester,
+                        year: result.data().year,
+                        approved_status: result.data().approved_status
+                    }
+                })
+            }
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document "
+                })
+            }
+        })
+})
+
+app.put('/updateSubject/:id', check_admin, (req, res) => {
+
+    const subject_id = req.params.id
+
+    db.collection('subjects').doc(subject_id).update({
+        subject_code: req.body.subject_code,
+        subject_name: req.body.subject_name
+    })
+        .then(() => {
+            return res.status(200).json({
+                message: "Update Subject Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                }
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+
+})
+
 
 //Open section  Deploy 27/1/2020
 
@@ -660,7 +717,7 @@ app.put('/updateSection/:id', permission_professor, async (req, res) => {
             }
             else {
                 db.collection('section_subject').doc(section_id).update({
-                    Time:req.body.Time,
+                    Time: req.body.Time,
                     time_absent: req.body.time_absent,
                     time_late: req.body.time_late,
                     total_mark: req.body.total_mark
@@ -713,47 +770,66 @@ app.delete('/deleteSection/:id', permission_professor, async (req, res) => {
 //Professor get subjects
 // 8/2/2020 add delete section function and edit return techer_name in getSubjects 
 // 10/2/2020 edit in getsubjects
+//12/2/20 edit getsubjects because have a little problem
 app.get('/getSubjects', permission_professor, async (req, res) => {
 
     const subjects = []
-    const year = req.query.year
-    const semester = req.query.semester
-    db.collection('section_subject')
-        .where('teacher_id', '==', req.user_id)
-        .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
-        .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
-        .get()
-        .then(snapshot_subjects => {
-            if (snapshot_subjects.empty) {
-                return res.status(404).json({
-                    message: "No Matching Document"
+    let year, semester;
+    db.collection('semester_year').where('status', '==', 'ACTIVE').get()
+        .then(result => {
+            if(!result.empty){
+            result.forEach(doc => {
+                year = doc.data().year;
+                semester = doc.data().semester;
+            })
+            db.collection('section_subject')
+                .where('teacher_id', '==', req.user_id)
+                .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+                .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
+                .get()
+                .then(snapshot_subjects => {
+                    if (snapshot_subjects.empty) {
+                        return res.status(404).json({
+                            message: "No Matching Document"
+                        })
+                    }
+                    snapshot_subjects.forEach(doc => {
+                        subjects.push({
+                            id: doc.id,
+                            Year: doc.data().Year,
+                            section_number: doc.data().section_number,
+                            Subject: doc.data().Subject,
+                            Time: doc.data().Time,
+                            time_absent: doc.data().time_absent,
+                            time_late: doc.data().time_late,
+                            total_mark: doc.data().total_mark,
+                            status: doc.data().status,
+                            teacher_name: doc.data().teacher_name
+                        })
+                    })
+                    return res.status(200).json({
+                        message: "Get Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        },
+                        data: subjects
+                    })
+                })
+                .catch(err => {
+                    return res.status(500).json({
+                        message:err.message
+                    })
                 })
             }
-            snapshot_subjects.forEach(doc => {
-                subjects.push({
-                    id: doc.id,
-                    Year: doc.data().Year,
-                    section_number: doc.data().section_number,
-                    Subject: doc.data().Subject,
-                    Time: doc.data().Time,
-                    time_absent: doc.data().time_absent,
-                    time_late: doc.data().time_late,
-                    total_mark: doc.data().total_mark,
-                    status: doc.data().status,
-                    teacher_name: doc.data().teacher_name
+            else{
+                return res.status(404).json({
+                    message:"No Matching Document"
                 })
-            })
-            return res.status(200).json({
-                message: "Get Success",
-                status: {
-                    dataStatus: "SUCCESS"
-                },
-                data: subjects
-            })
+            }
         })
-        .catch(err => {
-            console.log(err.message)
-        })
+
+
+
 
 })
 
@@ -1033,9 +1109,21 @@ app.get('/listSecStudent/:id', permission_professor, async (req, res) => {
     }
 })
 
+app.put('/approveStudent', (req, res) => {
+
+    const user_id = req.body.user_id;
+
+    // for(let i = 0 ; i < user_id.length ; i++){
+    //     db.collection('user_registration').doc(user_id[i])
+    // }
+    console.log(req.body.user_id.length)
+    console.log(user_id)
+
+})
 
 
-  
+
+
 //CRUD_BEACON
 //Deploy 
 
@@ -1060,7 +1148,8 @@ app.post('/createBeacon', check_admin, async (req, res) => {
                     uuid: req.body.uuid,
                     major: req.body.major,
                     minor: req.body.minor,
-                    name: req.body.name
+                    name: req.body.name,
+                    status: 'DISABLE'
                 })
                 return res.status(201).json({
                     message: "Add Beacon Success",
@@ -1078,13 +1167,27 @@ app.get('/getBeacon/:id', check_admin_professor, (req, res) => {
 
     db.collection('beacon').doc(beacon_id).get()
         .then(result => {
-            return res.status(200).json({
-                message: "Get Beacon Success",
-                status: {
-                    dataStatus: "SUCCESS"
-                },
-                data: result.data()
-            })
+            if (result.exists) {
+                return res.status(200).json({
+                    message: "Get Beacon Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: {
+                        id: result.id,
+                        name: result.data().name,
+                        major: result.data().major,
+                        minor: result.data().minor,
+                        uuid: result.data().uuid,
+                        status: result.data().status
+                    }
+                })
+            }
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document"
+                })
+            }
         })
         .catch(err => {
             return res.status(500).json({
@@ -1102,9 +1205,10 @@ app.get('/listBeacon', check_admin_professor, (req, res) => {
                 beacon.push({
                     id: doc.id,
                     name: doc.data().name,
-                    major:doc.data().major,
-                    minor:doc.data().minor,
-                    uuid: doc.data().uuid
+                    major: doc.data().major,
+                    minor: doc.data().minor,
+                    uuid: doc.data().uuid,
+                    status: doc.data().status
                 })
             })
             return beacon;
@@ -1120,24 +1224,41 @@ app.get('/listBeacon', check_admin_professor, (req, res) => {
         })
         .catch(err => {
             return res.status(500).json({
-                message:err.message
+                message: err.message
             })
         })
 })
 
-app.delete('/deleteBeacon/:id',check_admin,(req,res) => {
+app.delete('/deleteBeacon/:id', check_admin, (req, res) => {
 
     const beacon_id = req.params.id
 
-    db.collection('beacon').doc(beacon_id).delete()
-    .then(() => {
-        return res.status(200).json({
-            message:"Delete Beacon Success",
-            status:{
-                dataStatus:"SUCCESS"
+    db.collection('beacon').doc(beacon_id).get()
+        .then(result => {
+            if (result.exists) {
+                db.collection('beacon').doc(beacon_id).delete()
+                    .then(() => {
+                        return res.status(200).json({
+                            message: "Delete Beacon Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document"
+                })
             }
         })
-    })
+
 
 })
+
 exports.api = functions.https.onRequest(app)
