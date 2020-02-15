@@ -6,6 +6,7 @@ const firebaseauth = require('firebaseauth')
 const config = require('./config')
 const bodyParser = require('body-parser')
 const cors = require('cors')
+const { check_admin,permission_professor,check_admin_professor,nisit_permission} = require('./api/permission/func')
 
 const firebase = new firebaseauth(config.api_key)
 const app = express()
@@ -20,48 +21,6 @@ let db = admin.firestore()
 app.use(bodyParser.json())
 app.use(cors())
 
-//Middle Ware Check Admin permission
-const check_admin = (req, res, next) => {
-    if (req.headers.token === undefined) {
-        return res.status(401).json({ message: "Please insert token" })
-    }
-    else {
-        const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
-            if (claim.admin === true) {
-                next()
-            }
-            else {
-                return res.status(403).json({ message: "You don't have permission" })
-            }
-        })
-            .catch(err => {
-                res.status(500).json({ message: "Error: " + err.message })
-            })
-    }
-}
-
-const permission_professor = (req, res, next) => {
-    if (req.headers.token === undefined) {
-        return res.status(401).json({ message: "Please insert token" })
-    }
-    else {
-        const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
-            if (claim.professor === true) {
-                req.name = claim.name
-                req.user_id = claim.user_id
-                next()
-            }
-            else {
-                return res.status(403).json({ message: "You don't have permission" })
-            }
-        })
-            .catch(err => {
-                res.status(500).json({ message: "Error: " + err.message })
-            })
-    }
-}
 
 //register student  
 
@@ -323,38 +282,6 @@ app.put('/updateUser', (req, res) => {
     }
 })
 
-
-const check_admin_professor = (req, res, next) => {
-
-    if (req.headers.token !== undefined) {
-        const token = req.headers.token
-        admin.auth().verifyIdToken(token)
-            .then(claim => {
-                if (claim.admin === true || claim.professor === true) {
-                    req.name = claim.name
-                    req.claim = claim
-                    req.uid = claim.uid
-                    next()
-                }
-                else {
-                    res.status(403).json({
-                        message: "You don't granted permission"
-                    })
-                    return;
-                }
-            })
-            .catch(err => {
-                return res.status(500).json({
-                    message: err.message
-                })
-            })
-    }
-    else {
-        return res.status(401).json({
-            message: "Please Insert Token"
-        })
-    }
-}
 //Create Subject  //แก้ v.1.0.1 30/1/2020
 app.post('/createSubject', check_admin_professor, async (req, res) => {
 
@@ -827,10 +754,6 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
                 })
             }
         })
-
-
-
-
 })
 
 
@@ -1012,33 +935,7 @@ app.put('/setCurrentYear/:id', check_admin, async (req, res) => {
         })
 })
 
-
-
 //Nisit register subject
-
-const nisit_permission = (req, res, next) => {
-    if (req.headers.token === undefined) {
-        return res.status(401).json({ message: "Please insert token" })
-    }
-    else {
-        const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
-            if (claim.nisit === true) {
-                req.name = claim.name
-                req.user_id = claim.user_id
-                next()
-            }
-            else {
-                return res.status(403).json({ message: "You don't have permission" })
-            }
-        })
-            .catch(err => {
-                res.status(500).json({ message: "Error: " + err.message })
-            })
-    }
-}
-
-
 
 app.post('/subjectRegister', nisit_permission, (req, res) => {
 
@@ -1112,12 +1009,20 @@ app.get('/listSecStudent/:id', permission_professor, async (req, res) => {
 app.put('/approveStudent', (req, res) => {
 
     const user_id = req.body.user_id;
+    console.log(user_id.length)
 
-    // for(let i = 0 ; i < user_id.length ; i++){
-    //     db.collection('user_registration').doc(user_id[i])
-    // }
-    console.log(req.body.user_id.length)
-    console.log(user_id)
+    for(let i = 0 ; i < user_id.length ; i++){
+        db.collection('user_registration').doc(user_id[i]).update({
+            status:'APPROVE'
+        })
+    }
+    return res.status(200).json({
+        message:"Approve Student in Section Success",
+        status:{
+            dataStatus:"SUCCESS"
+        }
+    })
+
 
 })
 
