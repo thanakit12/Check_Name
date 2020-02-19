@@ -23,7 +23,6 @@ app.use(cors())
 
 
 //register student  
-
 //merge วันที่ 23/1/2020 15.18
 app.post('/register', async (req, res) => {
 
@@ -46,7 +45,6 @@ app.post('/register', async (req, res) => {
                 email: req.body.email,
                 mobile: req.body.mobile,
                 role: req.body.role,
-                // approved_status:"N"
             }
 
             if (req.body.role === 'ADMIN') {
@@ -994,66 +992,66 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
     const user_id = []
     const result = []
 
-    await  db.collection('section_subject')
-        .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==',req.body.subject_name)
+    await db.collection('section_subject')
+        .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', req.body.subject_name)
         .where(new admin.firestore.FieldPath('Year', 'year'), '==', req.body.year)
         .where(new admin.firestore.FieldPath('Year', 'semester'), '==', req.body.semester)
         .where("section_number", '==', req.body.section_number)
-        .where("teacher_id",'==',req.user_id)
+        .where("teacher_id", '==', req.user_id)
         .get()
         .then(async response => {
-            if(response.empty){
+            if (response.empty) {
                 return res.status(404).json({
-                    message:"No Matching Document"
+                    message: "No Matching Document"
                 })
             }
-            else{
+            else {
                 response.forEach(record => {
                     promise.push(record.id)
                 })
-                if(promise !== "undefined"){
-                   await db.collection('user_registration').where('section_id', '==', promise[0]).get()
-                    .then(result => {
-                        result.forEach(record => {
-                            user_id.push({
-                                id: record.id,
-                                uid: record.data().uid,
-                                sec_id: record.data().section_id,
-                                status: record.data().status
+                if (promise !== "undefined") {
+                    await db.collection('user_registration').where('section_id', '==', promise[0]).get()
+                        .then(result => {
+                            result.forEach(record => {
+                                user_id.push({
+                                    id: record.id,
+                                    uid: record.data().uid,
+                                    sec_id: record.data().section_id,
+                                    status: record.data().status
+                                })
                             })
                         })
-                    })
                     await db.collection('users').get()
-                    .then(async snapshot_user => {
-                        snapshot_user.forEach(users => {
-                            user_id.forEach(pro => {
-                                if (users.id === pro.uid) {
-                                      result.push({
-                                        auto_id: pro.id,
-                                        std_id: users.data().id,
-                                        firstname: users.data().firstname,
-                                        lastname: users.data().lastname,
-                                        email: users.data().email,
-                                        status: pro.status
-                                    })
-                                }
+                        .then(async snapshot_user => {
+                            snapshot_user.forEach(users => {
+                                user_id.forEach(pro => {
+                                    if (users.id === pro.uid) {
+                                        result.push({
+                                            auto_id: pro.id,
+                                            std_id: users.data().id,
+                                            firstname: users.data().firstname,
+                                            lastname: users.data().lastname,
+                                            email: users.data().email,
+                                            status: pro.status
+                                        })
+                                    }
+                                })
+                            })
+                            return res.json({
+                                message: "Get Data Success",
+                                status: {
+                                    dataStatus: "SUCCESS"
+                                },
+                                data: result
                             })
                         })
-                        return res.json({
-                            message:"Get Data Success",
-                            status:{
-                                dataStatus:"SUCCESS"
-                            },
-                            data:result
-                        })
-                    })
                 }
             }
         })
         .catch(err => {
-           return res.status(500).json({
-               message:err.message
-           })
+            return res.status(500).json({
+                message: err.message
+            })
         })
 })
 
@@ -1061,9 +1059,10 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
 app.put('/approveStudent', permission_professor, async (req, res) => {
 
     const id = req.body.id;
+    console.log(id)
     for (let i = 0; i < id.length; i++) {
-       await  db.collection('user_registration').doc(id[i]).update({
-            status:"APPROVE"
+        await db.collection('user_registration').doc(id[i]).update({
+            status: "APPROVE"
         })
     }
     return res.status(200).json({
@@ -1075,21 +1074,25 @@ app.put('/approveStudent', permission_professor, async (req, res) => {
 })
 
 app.delete('/rejectStudent', permission_professor, async (req, res) => {
-    const id = req.body.id
-    for (let i = 0; i < id.length; i++) {
-       await db.collection('user_registration').doc(id[i]).delete()
-    }
-    return res.status(200).json({
-        message: "Reject Student in Section Success",
-        status: {
-            dataStatus: "SUCCESS"
+    try {
+        const id = req.body.id
+        for (let i = 0; i < id.length; i++) {
+            await db.collection('user_registration').doc(id[i]).delete()
         }
-    })
+        return res.status(200).json({
+            message: "Reject Student in Section Success",
+            status: {
+                dataStatus: "SUCCESS"
+            }
+        })
+    }catch(err){
+        console.log(error)
+    }
 })
 
 //CRUD_BEACON
 //Deploy 
-app.post('/createBeacon', check_admin, async (req, res) => {
+app.post('/createBeacon', permission_professor, async (req, res) => {
 
     let isexist;
 
@@ -1123,7 +1126,7 @@ app.post('/createBeacon', check_admin, async (req, res) => {
         })
 })
 
-app.get('/getBeacon/:id', check_admin_professor, (req, res) => {
+app.get('/getBeacon/:id', permission_professor, (req, res) => {
 
     const beacon_id = req.params.id
 
@@ -1191,7 +1194,7 @@ app.get('/listBeacon', check_admin_professor, (req, res) => {
         })
 })
 
-app.delete('/deleteBeacon/:id', check_admin, (req, res) => {
+app.delete('/deleteBeacon/:id', check_admin_professor, (req, res) => {
 
     const beacon_id = req.params.id
 
@@ -1221,6 +1224,7 @@ app.delete('/deleteBeacon/:id', check_admin, (req, res) => {
         })
 })
 
+//Nisit
 app.get('/listSubjectsByStudent', nisit_permission, async (req, res) => {
 
     let user_id = req.user_id
@@ -1304,8 +1308,17 @@ app.delete('/dropSubject/:id', nisit_permission, (req, res) => {
                 message: err.message
             })
         })
-
 })
 
 
 exports.api = functions.https.onRequest(app)
+
+// exports.ResetPassword = functions.https.onRequest((req,res) => {
+
+//    firebase.sendPasswordResetEmail('thanakit.40@gmail.com',(err,result) => {
+//        if(err) throw err.message
+//       else{
+//           console.log("KKKK")
+//       }
+//    })
+// })
