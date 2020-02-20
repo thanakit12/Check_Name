@@ -31,64 +31,77 @@ app.post('/register', async (req, res) => {
     const extras = {
         name: req.body.firstname + " " + req.body.lastname
     }
-    firebase.registerWithEmail(email, password, extras, async function (err, result) {
-        if (err)
-            return res.status(500).json({ Error: err.message })
-        else {
-            const user = result.user
-            const uid = user.id
-            let customClaims
-            let user_data = {
-                id: req.body.id,
-                firstname: req.body.firstname,
-                lastname: req.body.lastname,
-                email: req.body.email,
-                mobile: req.body.mobile,
-                role: req.body.role,
-            }
 
-            if (req.body.role === 'ADMIN') {
-                customClaims = {
-                    admin: true
-                };
-            }
-            else if (req.body.role === 'PROFESSOR') {
-                customClaims = {
-                    professor: true
-                };
-            }
-            else if (req.body.role === 'NISIT') {
-                customClaims = {
-                    nisit: true
-                }
+    const check_id = await db.collection('users').where('id', '==', req.body.id).get()
+
+    if (check_id.empty) {
+        firebase.registerWithEmail(email, password, extras, async function (err, result) {
+            if (err) {
+                return res.status(500).json({
+                    message: err.message
+                })
             }
             else {
-                return res.status(500).json({ message: "Please insert correct type of user ex. 'ADMIN','LECTURER','STUDENT'" })
-            }
+                const user = result.user
+                const uid = user.id
+                let customClaims;
+                let user_data = {
+                    id: req.body.id,
+                    firstname: req.body.firstname,
+                    lastname: req.body.lastname,
+                    email: req.body.email,
+                    mobile: req.body.mobile,
+                    role: req.body.role,
+                }
 
-            admin.auth().setCustomUserClaims(uid, customClaims)
-                .then(async () => {
-                    let user_db = await db.collection('users').doc(uid).set(user_data)
-                    if (user_db) {
-                        res.status(201).json({
-                            message: "Add Success Fully",
-                            status: {
-                                dataStatus: "SUCCESS"
-                            }
-                        })
+                if (req.body.role === 'ADMIN') {
+                    customClaims = {
+                        admin: true
+                    };
+                }
+                else if (req.body.role === 'PROFESSOR') {
+                    customClaims = {
+                        professor: true
+                    };
+                }
+                else if (req.body.role === 'NISIT') {
+                    customClaims = {
+                        nisit: true
                     }
-                })
-                .catch(err => {
-                    res.status(500).json({ Err: err.message })
-                })
-        }
-    });
+                }
+                else {
+                    return res.status(500).json({ message: "Please insert correct type of user ex. 'ADMIN','LECTURER','STUDENT'" })
+                }
+                admin.auth().setCustomUserClaims(uid, customClaims)
+                    .then(async () => {
+                        let user_db = await db.collection('users').doc(uid).set(user_data)
+                        if (user_db) {
+                            res.status(201).json({
+                                message: "Add Success Fully",
+                                status: {
+                                    dataStatus: "SUCCESS"
+                                }
+                            })
+                        }
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+        })
+    }
+    else {
+        return res.status(500).json({
+            message: "ไม่สามรถเพิ่มได้ เนื่องจาก มี id นี้อยู่ใน ระบบ แล้ว"
+        })
+    }
 })
 
 
 // เสร็จแล้ววันที่ v.1.0.0 22/1/2020 19.46 
 app.post('/login', (req, res) => {
-
     const email = req.body.email
     const password = req.body.password
     if (email === undefined || password === undefined) {
@@ -286,8 +299,8 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
     let subject;
     if (req.claim.professor === true) {
         subject = {
-            year: req.body.year,
-            semester: req.body.semester,
+            // year: req.body.year,
+            // semester: req.body.semester,
             subject_code: req.body.subject_code,
             subject_name: req.body.subject_name,
             approved_status: "PENDING",
@@ -297,8 +310,8 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
     }
     else {
         subject = {
-            year: req.body.year,
-            semester: req.body.semester,
+            // year: req.body.year,
+            // semester: req.body.semester,
             subject_code: req.body.subject_code,
             subject_name: req.body.subject_name,
             approved_status: "APPROVE",
@@ -590,12 +603,13 @@ app.post('/subject_register', permission_professor, async (req, res) => {
 })
 
 //edit response 
-app.get('/getSection/:id', permission_professor, (req, res) => {
+//ยังไม่เสร็จ
+app.get('/getSection/:id', permission_professor, async (req, res) => {
 
     const section_id = req.params.id
-    db.collection('section_subject').doc(section_id).get()
+    const result = []
+    await db.collection('section_subject').doc(section_id).get()
         .then(doc => {
-            const result = [];
             let data_section;
             if (doc.exists) {
                 if (doc.data().Time.length === 1) {
@@ -783,7 +797,37 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
 })
 
 
+// app.get('/ListStudent', permission_professor, async (req, res) => {
 
+//     await db.collection('semester_year').where('status', '==', 'ACTIVE').get()
+//         .then(async result => {
+//             if (!result.empty) {
+//                 result.forEach(doc => {
+//                     year = doc.data().year;
+//                     semester = doc.data().semester;
+//                 })
+//                 await db.collection('section_subject')
+//                     .where('teacher_id', '==', req.user_id)
+//                     .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+//                     .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
+//                     .get()
+//                     .then(async (response) => {
+//                         if(response.empty){
+//                             return res.status(404).json({
+//                                 message:"No Matching Document "
+//                             })
+//                         }
+//                         const promise = [];
+//                         response.forEach(rec => {
+//                             promise.push(db.collection('user_registration').where('section_id','==',rec.id).get())
+//                         })
+//                         const regis = await Promise.all(promise)
+//                         regis.forEach(row => {
+//                             console.log(row)
+//                         })
+//                     })
+//             }
+// })
 //CRUD_YEAR V.1.1 because edit in function post year handle data exists !!! 6/2/2020 deploy success
 
 
@@ -962,27 +1006,38 @@ app.put('/setCurrentYear/:id', check_admin, async (req, res) => {
 })
 
 //Nisit register subject
-
-app.post('/subjectRegister', nisit_permission, (req, res) => {
-
+// handle uid duplicate
+//edit success
+app.post('/subjectRegister', nisit_permission, async (req, res) => {
     const uid = req.user_id
-    db.collection('user_registration').add({
-        uid: uid,
-        section_id: req.body.section_id,
-        status: "PENDING"
-    })
-        .then(() => {
-            return res.status(201).json({
-                message: "Register Subject Success",
-                status: {
-                    dataStatus: "SUCCESS"
-                }
-            })
-        })
-        .catch(err => {
-            return res.status(500).json({
-                message: err.message
-            })
+    await db.collection('user_registration').where('uid', '==', uid).where('section_id','==',req.body.section_id).get()
+        .then(async result => {
+            if (result.empty) {
+                await db.collection('user_registration')
+                    .add({
+                        uid: uid,
+                        section_id: req.body.section_id,
+                        status: "PENDING"
+                    })
+                    .then(() => {
+                        return res.status(201).json({
+                            message: "Register Subject Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+            else { 
+                return res.status(500).json({
+                    message: "คุณไม่สามารถลงทะเบียน ได้ เนื่องจาก มีข้อมูลอยู่แล้ว"
+                }) 
+            }
         })
 })
 
@@ -1085,7 +1140,7 @@ app.delete('/rejectStudent', permission_professor, async (req, res) => {
                 dataStatus: "SUCCESS"
             }
         })
-    }catch(err){
+    } catch (err) {
         console.log(error)
     }
 })
@@ -1312,13 +1367,3 @@ app.delete('/dropSubject/:id', nisit_permission, (req, res) => {
 
 
 exports.api = functions.https.onRequest(app)
-
-// exports.ResetPassword = functions.https.onRequest((req,res) => {
-
-//    firebase.sendPasswordResetEmail('thanakit.40@gmail.com',(err,result) => {
-//        if(err) throw err.message
-//       else{
-//           console.log("KKKK")
-//       }
-//    })
-// })
