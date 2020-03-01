@@ -6,6 +6,8 @@ const firebaseauth = require('firebaseauth')
 const config = require('./config')
 const bodyParser = require('body-parser')
 const cors = require('cors')
+const moment = require('moment-timezone')
+
 const { check_admin, permission_professor, check_admin_professor, nisit_permission } = require('./api/permission/func')
 
 const firebase = new firebaseauth(config.api_key)
@@ -144,6 +146,12 @@ app.get('/getUsers', check_admin, async (req, res) => {
     let users = []
     let usersRef = db.collection('users');
     let snapshot = await usersRef.get()
+    if (snapshot.empty) {
+        return res.status(404).json({
+            message: "No Matching Document ",
+            data: []
+        })
+    }
     snapshot.forEach(docs => {
         let user = {
             id: docs.data().id,
@@ -337,7 +345,8 @@ app.get('/getSubjectsApprove', async (req, res) => {
     const subjects = []
     if (snapshot_subjects.empty) {
         return res.status(404).json({
-            message: "No Document"
+            message: "No Document",
+            data: []
         })
     }
     snapshot_subjects.forEach(doc => {
@@ -506,7 +515,8 @@ app.get('/getSubject/:id', check_admin, (req, res) => {
             }
             else {
                 return res.status(404).json({
-                    message: "No Matching Document "
+                    message: "No Matching Document ",
+                    data: []
                 })
             }
         })
@@ -658,7 +668,8 @@ app.get('/getSection/:id', permission_professor, async (req, res) => {
             }
             else {
                 return res.status(404).json({
-                    message: "No Matching Document "
+                    message: "No Matching Document ",
+                    data: []
                 })
             }
         })
@@ -757,7 +768,8 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
                     .then(snapshot_subjects => {
                         if (snapshot_subjects.empty) {
                             return res.status(404).json({
-                                message: "No Matching Document"
+                                message: "No Matching Document",
+                                data: []
                             })
                         }
                         snapshot_subjects.forEach(doc => {
@@ -790,46 +802,159 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
             }
             else {
                 return res.status(404).json({
-                    message: "No Matching Document"
+                    message: "No Matching Document",
+                    data: []
                 })
             }
         })
 })
 
 
-// app.get('/ListStudent', permission_professor, async (req, res) => {
+app.get('/ListStudent', permission_professor, async (req, res) => {
 
-//     await db.collection('semester_year').where('status', '==', 'ACTIVE').get()
-//         .then(async result => {
-//             if (!result.empty) {
-//                 result.forEach(doc => {
-//                     year = doc.data().year;
-//                     semester = doc.data().semester;
-//                 })
-//                 await db.collection('section_subject')
-//                     .where('teacher_id', '==', req.user_id)
-//                     .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
-//                     .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
-//                     .get()
-//                     .then(async (response) => {
-//                         if(response.empty){
-//                             return res.status(404).json({
-//                                 message:"No Matching Document "
-//                             })
-//                         }
-//                         const promise = [];
-//                         response.forEach(rec => {
-//                             promise.push(db.collection('user_registration').where('section_id','==',rec.id).get())
-//                         })
-//                         const regis = await Promise.all(promise)
-//                         regis.forEach(row => {
-//                             console.log(row)
-//                         })
-//                     })
-//             }
-// })
+    await db.collection('semester_year').where('status', '==', 'ACTIVE').get()
+        .then(async result => {
+            if (!result.empty) {
+                result.forEach(doc => {
+                    year = doc.data().year;
+                    semester = doc.data().semester;
+                })
+                await db.collection('section_subject')
+                    .where('teacher_id', '==', req.user_id)
+                    .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+                    .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
+                    .get()
+                    .then(async (response) => {
+                        if (response.empty) {
+                            return res.status(404).json({
+                                message: "No Matching Document ",
+                                data: []
+                            })
+                        }
+                        const promise = [];
+                        const section = [];
+                        response.forEach(rec => {
+                            section.push({
+                                section_id: rec.id,
+                                subject_name: rec.data().Subject.subject_name,
+                                subject_code: rec.data().Subject.subject_code,
+                                section_number: rec.data().section_number
+                            })
+                        })
+                        const data = []
+                        section.forEach(section => {
+                            promise.push(
+                                db.collection('user_registration').where('section_id', '==', section.section_id).where('status', '==', 'PENDING').get()
+                                    .then(result => {
+                                        result.forEach(row => {
+                                            data.push({
+                                                regis_id: row.id,
+                                                subject_name: section.subject_name,
+                                                subject_code: section.subject_code,
+                                                section_id: row.data().section_id,
+                                                section_number: section.section_number,
+                                                uid: row.data().uid,
+                                                status: row.data().status
+                                            })
+                                        })
+                                    }))
+                        })
+                        await Promise.all(promise);
+                        const final = [];
+                        db.collection('users').get()
+                            .then(users => {
+                                if (users.empty) {
+                                    return res.status(404).json({
+                                        message: "No Matching Document ",
+                                        data: []
+                                    })
+                                }
+                                users.forEach(user => {
+                                    data.forEach(dat => {
+                                        if (user.id === dat.uid) {
+                                            final.push({
+                                                regis_id: dat.regis_id,
+                                                section_id: dat.section_id,
+                                                subject_code: dat.subject_code,
+                                                subject_name: dat.subject_name,
+                                                section_number: dat.section_number,
+                                                std_id: user.data().id,
+                                                firstname: user.data().firstname,
+                                                lastname: user.data().lastname,
+                                                status: dat.status
+                                            })
+                                        }
+                                    })
+                                })
+                                return res.status(200).json({
+                                    message: "Get Data Success",
+                                    status: {
+                                        dataStatus: "SUCCESS"
+                                    },
+                                    data: final
+                                })
+                            })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+        })
+})
+
+//Add function getStudentSection at 21/2/2020
+//deploy Success
+app.get('/getStudentSection/:id', permission_professor, async (req, res) => {
+    const section_id = req.params.id
+    await db.collection('section_subject').doc(section_id).get()
+        .then(async result => {
+            if (result.exists) {
+                db.collection('user_registration').where('section_id', '==', result.id).where('status', '==', 'APPROVE').get()
+                    .then(async resp => {
+                        const student = [];
+                        const promise = [];
+                        resp.forEach(rec => {
+                            promise.push(db.collection('users').doc(rec.data().uid).get()
+                                .then(user => {
+                                    student.push({
+                                        std_id: user.data().id,
+                                        firstname: user.data().firstname,
+                                        lastname: user.data().lastname,
+                                        status: rec.data().status
+                                    })
+                                }))
+                        })
+                        await Promise.all(promise)
+                        return res.status(200).json({
+                            message: "Get Data Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            },
+                            data: {
+                                subject_code: result.data().Subject.subject_code,
+                                subject_name: result.data().Subject.subject_name,
+                                section_number: result.data().section_number,
+                                students: student
+                            },
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+            else {
+                return res.status(404).json({
+                    message: "No Matching Document ",
+                    data: []
+                })
+            }
+        })
+})
 //CRUD_YEAR V.1.1 because edit in function post year handle data exists !!! 6/2/2020 deploy success
-
 
 app.get('/getYear', check_admin, (req, res) => {
 
@@ -867,7 +992,8 @@ app.get('/getCurrentYear', check_admin_professor, async (req, res) => {
     let payload;
     if (snapshot.empty) {
         return res.status(404).json({
-            message: "No Document ...."
+            message: "No Document ....",
+            data: []
         })
     }
     else {
@@ -958,7 +1084,8 @@ app.delete('/delYear/:id', check_admin, (req, res) => {
     year_db.then(result => {
         if (!result.exists) {
             return res.status(404).json({
-                message: "No Matching Document"
+                message: "No Matching Document",
+                data: []
             })
         }
         else {
@@ -1010,7 +1137,7 @@ app.put('/setCurrentYear/:id', check_admin, async (req, res) => {
 //edit success
 app.post('/subjectRegister', nisit_permission, async (req, res) => {
     const uid = req.user_id
-    await db.collection('user_registration').where('uid', '==', uid).where('section_id','==',req.body.section_id).get()
+    await db.collection('user_registration').where('uid', '==', uid).where('section_id', '==', req.body.section_id).get()
         .then(async result => {
             if (result.empty) {
                 await db.collection('user_registration')
@@ -1033,81 +1160,145 @@ app.post('/subjectRegister', nisit_permission, async (req, res) => {
                         })
                     })
             }
-            else { 
+            else {
                 return res.status(500).json({
                     message: "คุณไม่สามารถลงทะเบียน ได้ เนื่องจาก มีข้อมูลอยู่แล้ว"
-                }) 
+                })
             }
         })
 })
 
 app.post('/listSecStudent', permission_professor, async (req, res) => {
 
-    const promise = []
-    const user_id = []
-    const result = []
-
-    await db.collection('section_subject')
-        .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', req.body.subject_name)
-        .where(new admin.firestore.FieldPath('Year', 'year'), '==', req.body.year)
-        .where(new admin.firestore.FieldPath('Year', 'semester'), '==', req.body.semester)
-        .where("section_number", '==', req.body.section_number)
-        .where("teacher_id", '==', req.user_id)
-        .get()
-        .then(async response => {
-            if (response.empty) {
-                return res.status(404).json({
-                    message: "No Matching Document"
-                })
-            }
-            else {
-                response.forEach(record => {
-                    promise.push(record.id)
-                })
-                if (promise !== "undefined") {
-                    await db.collection('user_registration').where('section_id', '==', promise[0]).get()
-                        .then(result => {
-                            result.forEach(record => {
-                                user_id.push({
-                                    id: record.id,
-                                    uid: record.data().uid,
-                                    sec_id: record.data().section_id,
-                                    status: record.data().status
+    if (req.body.section_number === "") {
+        await db.collection('section_subject')
+            .where('teacher_id', '==', req.user_id)
+            .where(new admin.firestore.FieldPath('Year', 'year'), '==', req.body.year)
+            .where(new admin.firestore.FieldPath('Year', 'semester'), '==', req.body.semester)
+            .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', req.body.subject_name)
+            .get()
+            .then(async response => {
+                const promise = []
+                const result = []
+                response.forEach(doc => {
+                    console.log(doc.id)
+                    promise.push(db.collection('user_registration').where('section_id', '==', doc.id).get()
+                        .then(data => {
+                            data.forEach(rec => {
+                                result.push({
+                                    regis_id: rec.id,
+                                    section_id:doc.id,
+                                    subject_code: doc.data().Subject.subject_code,
+                                    subject_name: doc.data().Subject.subject_name,
+                                    section_number: doc.data().section_number,
+                                    uid: rec.data().uid,
+                                    status: rec.data().status
                                 })
                             })
+                        }))
+                })
+                const final = [];
+                await Promise.all(promise)
+                await db.collection('users').get()
+                    .then(row => {
+                        row.forEach(record => {
+                            result.forEach(regis => {
+                                if (record.id === regis.uid) {
+                                    final.push({
+                                        regis_id: regis.regis_id,
+                                        section_id:regis.section_id,
+                                        subject_code: regis.subject_code,
+                                        subject_name: regis.subject_name,
+                                        section_number: regis.section_number,
+                                        std_id: record.data().id,
+                                        firstname: record.data().firstname,
+                                        lastname: record.data().lastname,
+                                        status: regis.status
+                                    })
+                                }
+                            })
                         })
+                    })
+                return res.status(200).json({
+                    message: "Get Data Success",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: final
+                })
+            })
+    }
+    else {
+        await db.collection('section_subject')
+            .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', req.body.subject_name)
+            .where(new admin.firestore.FieldPath('Year', 'year'), '==', req.body.year)
+            .where(new admin.firestore.FieldPath('Year', 'semester'), '==', req.body.semester)
+            .where("section_number", '==', req.body.section_number)
+            .where("teacher_id", '==', req.user_id)
+            .get()
+            .then(async response => {
+                if (response.empty) {
+                    return res.status(404).json({
+                        message: "No Matching Document",
+                        data: []
+                    })
+                }
+                else {
+                    const promise = []
+                    const result = []
+                    response.forEach(doc => {
+                        promise.push(db.collection('user_registration').where('section_id', '==', doc.id).get()
+                            .then(data => {
+                                data.forEach(rec => {
+                                    result.push({
+                                        regis_id: rec.id,
+                                        section_id:doc.id,
+                                        subject_code: doc.data().Subject.subject_code,
+                                        subject_name: doc.data().Subject.subject_name,
+                                        section_number: doc.data().section_number,
+                                        uid: rec.data().uid,
+                                        status: rec.data().status
+                                    })
+                                })
+                            }))
+                    })
+                    const final = [];
+                    await Promise.all(promise)
                     await db.collection('users').get()
-                        .then(async snapshot_user => {
-                            snapshot_user.forEach(users => {
-                                user_id.forEach(pro => {
-                                    if (users.id === pro.uid) {
-                                        result.push({
-                                            auto_id: pro.id,
-                                            std_id: users.data().id,
-                                            firstname: users.data().firstname,
-                                            lastname: users.data().lastname,
-                                            email: users.data().email,
-                                            status: pro.status
+                        .then(row => {
+                            row.forEach(record => {
+                                result.forEach(regis => {
+                                    if (record.id === regis.uid) {
+                                        final.push({
+                                            regis_id: regis.regis_id,
+                                            section_id:regis.section_id,
+                                            subject_code: regis.subject_code,
+                                            subject_name: regis.subject_name,
+                                            section_number: regis.section_number,
+                                            std_id: record.data().id,
+                                            firstname: record.data().firstname,
+                                            lastname: record.data().lastname,
+                                            status: regis.status
                                         })
                                     }
                                 })
                             })
-                            return res.json({
-                                message: "Get Data Success",
-                                status: {
-                                    dataStatus: "SUCCESS"
-                                },
-                                data: result
-                            })
                         })
+                    return res.status(200).json({
+                        message: "Get Data Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        },
+                        data: final
+                    })
                 }
-            }
-        })
-        .catch(err => {
-            return res.status(500).json({
-                message: err.message
             })
-        })
+            .catch(err => {
+                return res.status(500).json({
+                    message: err.message
+                })
+            })
+    }
 })
 
 //add approve student and reject student 18/2/2020
@@ -1141,7 +1332,9 @@ app.delete('/rejectStudent', permission_professor, async (req, res) => {
             }
         })
     } catch (err) {
-        console.log(error)
+        return res.status(500).json({
+            message: err.message
+        })
     }
 })
 
@@ -1221,6 +1414,12 @@ app.get('/listBeacon', check_admin_professor, (req, res) => {
     const beacon = []
     db.collection('beacon').get()
         .then(result => {
+            if (result.empty) {
+                return res.status(404).json({
+                    message: "No Matching Document ",
+                    data: []
+                })
+            }
             result.forEach(doc => {
                 beacon.push({
                     id: doc.id,
@@ -1291,7 +1490,8 @@ app.get('/listSubjectsByStudent', nisit_permission, async (req, res) => {
 
         if (registration_list.empty) {
             return res.status(404).json({
-                message: "No Matching Document"
+                message: "No Matching Document",
+                data: []
             })
         }
         const regis_id = [];
@@ -1365,5 +1565,29 @@ app.delete('/dropSubject/:id', nisit_permission, (req, res) => {
         })
 })
 
+
+// app.post('/openClass', async (req, res) => {
+
+//     const time = moment.tz(req.body.opened_timestamp, "Asia/Bangkok").format("X");
+
+//     await db.collection('classes').add({
+//         year: req.body.year,
+//         semester: req.body.semester,
+//         section_id: req.body.section_id,
+//         beacon_id: req.body.beacon_id,
+//         opened_timestamp: Number(time),
+//         status: "ACTIVE"
+//     })
+//         .then(() => {
+//             return res.status(201).json({
+//                 message: "Open Class Success",
+//                 status: {
+//                     dataStatus: "SUCCESS"
+//                 }
+//             })
+//         })
+
+//     // console.log(data)
+// })
 
 exports.api = functions.https.onRequest(app)
