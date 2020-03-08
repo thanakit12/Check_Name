@@ -5,6 +5,25 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 
+
+
+const permission_all = (req,res,next) => {
+    if(req.headers.token === undefined){
+        return res.status(401).json({ message: "Please insert token" })
+    }
+    else{
+        const token = req.headers.token
+        admin.auth().verifyIdToken(token).then(claim => {
+            if (claim.admin === true || claim.professor === true || claim.nisit === true) {
+                next()
+            }
+            else {
+                return res.status(403).json({ message: "You don't have permission" })
+            }
+        })
+
+    }
+}
 //Middle Ware Check Admin permission
 const check_admin = (req, res, next) => {
     if (req.headers.token === undefined) {
@@ -107,5 +126,6 @@ module.exports = {
     check_admin,
     permission_professor,
     check_admin_professor,
-    nisit_permission
+    nisit_permission,
+    permission_all
 }
