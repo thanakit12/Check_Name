@@ -8,7 +8,7 @@ const bodyParser = require('body-parser')
 const cors = require('cors')
 const moment = require('moment-timezone')
 
-const { check_admin, permission_professor, check_admin_professor, nisit_permission ,permission_all} = require('./api/permission/func')
+const { check_admin, permission_professor, check_admin_professor, nisit_permission, permission_all } = require('./api/permission/func')
 
 const firebase = new firebaseauth(config.api_key)
 const app = express()
@@ -89,8 +89,8 @@ app.post('/register', async (req, res) => {
                     .catch(err => {
                         return res.status(500).json({
                             message: err.message,
-                            status:{
-                                dataStatus:"FAILURE"
+                            status: {
+                                dataStatus: "FAILURE"
                             }
                         })
                     })
@@ -100,8 +100,8 @@ app.post('/register', async (req, res) => {
     else {
         return res.status(500).json({
             message: "ไม่สามรถเพิ่มได้ เนื่องจาก มี id นี้อยู่ใน ระบบ แล้ว",
-            status:{
-                dataStatus:"FAILURE"
+            status: {
+                dataStatus: "FAILURE"
             }
         })
     }
@@ -201,13 +201,13 @@ app.delete('/deleteUser/:uid', check_admin, (req, res) => {
         })
         .catch(err => {
             return res.status(500).json(
-                { 
+                {
                     message: err.message,
-                    status:{
-                        dataStatus:"FAILURE"
+                    status: {
+                        dataStatus: "FAILURE"
                     }
-                 }
-                )
+                }
+            )
         })
 })
 
@@ -315,40 +315,64 @@ app.put('/updateUser', (req, res) => {
 })
 
 //Create Subject  //แก้ v.1.0.1 30/1/2020
+//edit createSubject clear
 app.post('/createSubject', check_admin_professor, async (req, res) => {
 
     let subject;
-    if (req.claim.professor === true) {
-        subject = {
-            // year: req.body.year,
-            // semester: req.body.semester,
-            subject_code: req.body.subject_code,
-            subject_name: req.body.subject_name,
-            approved_status: "PENDING",
-            creater_name: req.name,
-            uid: req.uid
-        }
+    if (req.body.subject_code !== "" && req.body.subject_name !== "") {
+
+        await db.collection('subjects').where('subject_code', '==', req.body.subject_code)
+            .where('subject_name', '==', req.body.subject_name)
+            .get()
+            .then(async result => {
+                if (result.empty) {
+                    if (req.claim.professor === true) {
+                        subject = {
+                            subject_code: req.body.subject_code,
+                            subject_name: req.body.subject_name,
+                            approved_status: "PENDING",
+                            creater_name: req.name,
+                            uid: req.uid
+                        }
+                    }
+                    else {
+                        subject = {
+                            subject_code: req.body.subject_code,
+                            subject_name: req.body.subject_name,
+                            approved_status: "APPROVE",
+                            creater_name: req.name,
+                            uid: req.uid
+                        }
+                    }
+                    const snapshot_subject = await db.collection('subjects').add(subject)
+                    if (snapshot_subject) {
+                        return res.status(201).json({
+                            message: "Create Subject Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    }
+                }
+                else {
+                    return res.status(500).json({
+                        message: "ไม่สามารถสร้างวิชาได้ เนื่องจาก มีวิชานี้แล้ว",
+                        status: {
+                            dataStatus: "FAILURE"
+                        }
+                    })
+                }
+            })
     }
     else {
-        subject = {
-            // year: req.body.year,
-            // semester: req.body.semester,
-            subject_code: req.body.subject_code,
-            subject_name: req.body.subject_name,
-            approved_status: "APPROVE",
-            creater_name: req.name,
-            uid: req.uid
-        }
-    }
-    const snapshot_subject = await db.collection('subjects').add(subject)
-    if (snapshot_subject) {
-        return res.status(201).json({
-            message: "Create Subject Success",
+        return res.status(500).json({
+            message: "กรุณากรอกข้อมูลให้ครบ",
             status: {
-                dataStatus: "SUCCESS"
+                dataStatus: "FAILURE"
             }
         })
     }
+
 })
 
 //getSubject // ลบสิทธิ์ admin
@@ -872,7 +896,9 @@ app.get('/ListStudent', permission_professor, async (req, res) => {
                                         })
                                     }))
                         })
-                        await Promise.all(promise);
+                        await (await Promise.all(promise).catch(err => {
+                            console.log(err.message)
+                        }));
                         const final = [];
                         db.collection('users').get()
                             .then(users => {
@@ -1013,7 +1039,7 @@ app.get('/getCurrentYear', permission_all, async (req, res) => {
         snapshot.forEach(result => {
             payload = {
                 id: result.id,
-                year: result.data().year,
+                year: Number(result.data().year),
                 semester: result.data().semester,
                 status: result.data().status
             }
@@ -1048,7 +1074,7 @@ app.post('/AddYear', check_admin, async (req, res) => {
         promise_year.then(result => {
             if (result.empty) {
                 const add = db.collection('semester_year').add({
-                    year: req.body.year,
+                    year: Number(req.body.year),
                     semester: req.body.semester,
                     status: 'ACTIVE'
                 })
@@ -1068,7 +1094,7 @@ app.post('/AddYear', check_admin, async (req, res) => {
             }
             else {
                 db.collection('semester_year').add({
-                    year: req.body.year,
+                    year: Number(req.body.year),
                     semester: req.body.semester,
                     status: 'DISABLE'
                 })
@@ -1170,8 +1196,8 @@ app.post('/subjectRegister', nisit_permission, async (req, res) => {
                     .catch(err => {
                         return res.status(500).json({
                             message: err.message,
-                            status:{
-                                dataStatus:"FAILURE"
+                            status: {
+                                dataStatus: "FAILURE"
                             }
                         })
                     })
@@ -1179,8 +1205,8 @@ app.post('/subjectRegister', nisit_permission, async (req, res) => {
             else {
                 return res.status(500).json({
                     message: "คุณไม่สามารถลงทะเบียน ได้ เนื่องจาก มีข้อมูลอยู่แล้ว",
-                    status:{
-                        dataStatus:"FAILURE"
+                    status: {
+                        dataStatus: "FAILURE"
                     }
                 })
             }
@@ -1206,7 +1232,7 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
                             data.forEach(rec => {
                                 result.push({
                                     regis_id: rec.id,
-                                    section_id:doc.id,
+                                    section_id: doc.id,
                                     subject_code: doc.data().Subject.subject_code,
                                     subject_name: doc.data().Subject.subject_name,
                                     section_number: doc.data().section_number,
@@ -1225,7 +1251,7 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
                                 if (record.id === regis.uid) {
                                     final.push({
                                         regis_id: regis.regis_id,
-                                        section_id:regis.section_id,
+                                        section_id: regis.section_id,
                                         subject_code: regis.subject_code,
                                         subject_name: regis.subject_name,
                                         section_number: regis.section_number,
@@ -1271,7 +1297,7 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
                                 data.forEach(rec => {
                                     result.push({
                                         regis_id: rec.id,
-                                        section_id:doc.id,
+                                        section_id: doc.id,
                                         subject_code: doc.data().Subject.subject_code,
                                         subject_name: doc.data().Subject.subject_name,
                                         section_number: doc.data().section_number,
@@ -1290,7 +1316,7 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
                                     if (record.id === regis.uid) {
                                         final.push({
                                             regis_id: regis.regis_id,
-                                            section_id:regis.section_id,
+                                            section_id: regis.section_id,
                                             subject_code: regis.subject_code,
                                             subject_name: regis.subject_name,
                                             section_number: regis.section_number,
@@ -1363,6 +1389,14 @@ app.post('/createBeacon', permission_professor, async (req, res) => {
 
     let isexist;
 
+    if (req.body.name === '') {
+        return res.status(500).json({
+            message: "Please Insert Name of Beacon",
+            status: {
+                dataStatus: "FAILURE"
+            }
+        })
+    }
     db.collection('beacon')
         .where('uuid', '==', req.body.uuid)
         .get()
@@ -1372,7 +1406,10 @@ app.post('/createBeacon', permission_professor, async (req, res) => {
             })
             if (isexist) {
                 return res.status(500).json({
-                    message: "Cannot Add Data Because Data is exists "
+                    message: "Cannot Add Data Because Data is exists ",
+                    status: {
+                        dataStatus: "FAILURE"
+                    }
                 })
             }
             else {
@@ -1436,6 +1473,9 @@ app.get('/listBeacon', check_admin_professor, (req, res) => {
             if (result.empty) {
                 return res.status(404).json({
                     message: "No Matching Document ",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
                     data: []
                 })
             }
@@ -1568,7 +1608,9 @@ app.delete('/dropSubject/:id', nisit_permission, (req, res) => {
 
     const id = req.params.id
 
-    db.collection('user_registration').doc(id).delete()
+    db.collection('user_registration').doc(id).update({
+        status: "DROP"
+    })
         .then(() => {
             return res.status(200).json({
                 message: "Drop Subject Success",
@@ -1584,233 +1626,615 @@ app.delete('/dropSubject/:id', nisit_permission, (req, res) => {
         })
 })
 
+app.delete('/dropStudent/:id', permission_professor, async (req, res) => {
 
-// app.post('/openClass', async (req, res) => {
+    const request_id = req.params.id;
+    await db.collection('user_registration').doc(request_id).get()
+        .then(async resp => {
+            if (resp.exists) {
+                await db.collection('user_registration').doc(request_id).delete()
+                    .then(() => {
+                        return res.status(200).json({
+                            message: "Drop Student Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            }
+                        })
+                    })
+            }
+            else{
+                return res.status(404).json({
+                    message:"No Document Found",
+                    status:{
+                        dataStatus:"SUCCESS"
+                    }
+                })
+            }
+        })
 
-//     const time = moment.tz(req.body.opened_timestamp, "Asia/Bangkok").format("X");
-//     await db.collection('semester_year').where('status','==','ACTIVE')
-//     .get()
-//     .then(async result => {
-//         let year,semester;
-//         result.forEach(record => {
-//              semester = record.data().semester;
-//              year = record.data().year  
-//         })
-//         await db.collection('classes').add({
-//             year:Number(year),
-//             semester:semester,
-//             section_id:req.body.section_id,
-//             beacon_id:req.body.beacon_id,
-//             opened_timestamp: Number(time),
-//             status: "ACTIVE"
-//         })
-//         .then(async () => {
-//             await db.collection('beacon').doc(req.body.beacon_id).update({
-//                         status:'ACTIVE'
-//                     })
-//         })
-//         .then(() => {
-//             return res.status(200).json({
-//                 message: "Open Class Success",
-//                 status: {
-//                     dataStatus: "SUCCESS"
-//                 }
-//             })
-//         })
-//     })
-// })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message,
+                status: {
+                    dataStatus: "FAILURE"
+                }
+            })
+        })
+})
+
+
+app.get('/getBeaconInActive', permission_professor, async (req, res) => {
+
+    const beacon = [];
+    await db.collection('beacon').where('status', '==', 'DISABLE')
+        .get()
+        .then(resp => {
+            if (resp.empty) {
+                return res.status(404).json({
+                    message: "No Beacon",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: [],
+                })
+            }
+            resp.forEach(record => {
+                beacon.push({
+                    id: record.id,
+                    uuid: record.data().uuid,
+                    major: record.data().major,
+                    minor: record.data().minor,
+                    name: record.data().name
+                })
+            })
+            return res.status(200).json({
+                message: "Get Beacon Disable Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                },
+                data: beacon
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+})
+app.post('/openClass', permission_professor, async (req, res) => {
+
+    const zone = 'Asia/Bangkok';
+    const time = moment(new Date()).tz(zone).format("X");
+    await db.collection('semester_year').where('status', '==', 'ACTIVE')
+        .get()
+        .then(async result => {
+            let year, semester;
+            result.forEach(record => {
+                semester = record.data().semester;
+                year = record.data().year
+            })
+
+            await db.collection('classes').where('status', '==', 'ACTIVE')
+                .where('uid', '==', req.user_id)
+                .get()
+                .then(async resp => {
+                    if (resp.empty) {
+                        await db.collection('classes').add({
+                            year: Number(year),
+                            semester: semester,
+                            section_id: req.body.section_id,
+                            beacon_id: req.body.beacon_id,
+                            opened_timestamp: Number(time),
+                            status: "ACTIVE",
+                            uid: req.user_id
+                        })
+                            .then(async () => {
+                                await db.collection('beacon').doc(req.body.beacon_id).update({
+                                    status: 'ACTIVE'
+                                })
+                            })
+                            .then(() => {
+                                return res.status(200).json({
+                                    message: "Open Class Success",
+                                    status: {
+                                        dataStatus: "SUCCESS"
+                                    }
+                                })
+                            })
+                    }
+                    else {
+                        return res.status(500).json({
+                            message: "You are already open class",
+                            status: {
+                                dataStatus: 'FAILURE'
+                            }
+                        })
+                    }
+                })
+        })
+})
 
 //Nisit Subject Register
 
-app.get('/getSubjectByStudent', nisit_permission ,async (req,res)=> {
+app.get('/getSubjectByStudent', nisit_permission, async (req, res) => {
 
     const subject = [];
 
-    await db.collection('subjects').where('approved_status','==','APPROVE')
-    .get()
-    .then(result => {
-        result.forEach(row => {
-            subject.push({
-                subject_code: row.data().subject_code,
-                subject_name: row.data().subject_name,
-                approved_status: row.data().approved_status,
-                creater_name: row.data().creater_name,
-                uid: row.data().uid,
+    await db.collection('subjects').where('approved_status', '==', 'APPROVE')
+        .get()
+        .then(result => {
+            result.forEach(row => {
+                subject.push({
+                    subject_code: row.data().subject_code,
+                    subject_name: row.data().subject_name,
+                    approved_status: row.data().approved_status,
+                    creater_name: row.data().creater_name,
+                    uid: row.data().uid,
+                })
             })
         })
-    })
-    .catch(err => {
-        return res.status(500).json({
-            message:err.message
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
         })
-    })
-    
-    let year,semester;
-    await db.collection('semester_year').where('status','==','ACTIVE')
-    .get()
-    .then(result => {
-        result.forEach(record => {
-            year = record.data().year;
-            semester = record.data().semester;
+
+    let year, semester;
+    await db.collection('semester_year').where('status', '==', 'ACTIVE')
+        .get()
+        .then(result => {
+            result.forEach(record => {
+                year = record.data().year;
+                semester = record.data().semester;
+            })
         })
-    })
 
     const promise = [];
-    let subject_name,subject_code;
+    let subject_name, subject_code;
     subject.forEach(record => {
         promise.push(
-        db.collection('section_subject')
-        .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
-        .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
-        .where(new admin.firestore.FieldPath('Subject','subject_code'),'==',record.subject_code)
-        .where(new admin.firestore.FieldPath('Subject','subject_name'),'==',record.subject_name)
-        .get())
-})
-   
-   const result = await Promise.all(promise)
+            db.collection('section_subject')
+                .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+                .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
+                .where(new admin.firestore.FieldPath('Subject', 'subject_code'), '==', record.subject_code)
+                .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', record.subject_name)
+                .get())
+    })
+
+    const result = await Promise.all(promise)
     let section = [];
     let final = [];
     result.forEach(record => {
-        section= []
-        if(record.size > 1){
+        section = []
+        if (record.size > 1) {
             record.forEach(value => {
-               subject_code = value.data().Subject.subject_code;
-               subject_name = value.data().Subject.subject_name;
-               section.push({
-                       id:value.id,
-                       teacher_id:value.data().teacher_id,
-                       time_absent: value.data().time_absent,
-                       teacher_name: value.data().teacher_name,
-                       Time: value.data().Time,
-                       status: value.data().status,
-                       total_mark: value.data().total_mark,
-                       time_late: value.data().time_late,
-                       section_number: value.data().section_number
-               })
-         })
-         final.push({
-             Subject:{
-                 subject_code:subject_code,
-                 subject_name:subject_name
-             },
-             sections : section
-         })
-        }
-        else{
-            section= [];
-            record.forEach(value => {
-               subject_code = value.data().Subject.subject_code;
-               subject_name = value.data().Subject.subject_name
-               section.push({
-                id:value.id,
-                teacher_id:value.data().teacher_id,
-                time_absent: value.data().time_absent,
-                teacher_name: value.data().teacher_name,
-                Time: value.data().Time,
-                status: value.data().status,
-                total_mark: value.data().total_mark,
-                time_late: value.data().time_late,
-                section_number: value.data().section_number
-               })
+                subject_code = value.data().Subject.subject_code;
+                subject_name = value.data().Subject.subject_name;
+                section.push({
+                    id: value.id,
+                    teacher_id: value.data().teacher_id,
+                    time_absent: value.data().time_absent,
+                    teacher_name: value.data().teacher_name,
+                    Time: value.data().Time,
+                    status: value.data().status,
+                    total_mark: value.data().total_mark,
+                    time_late: value.data().time_late,
+                    section_number: value.data().section_number
+                })
             })
             final.push({
-                Subject:{
-                    subject_code:subject_code,
-                    subject_name:subject_name
+                Subject: {
+                    subject_code: subject_code,
+                    subject_name: subject_name
                 },
-                sections : section
+                sections: section
+            })
+        }
+        else {
+            section = [];
+            record.forEach(value => {
+                subject_code = value.data().Subject.subject_code;
+                subject_name = value.data().Subject.subject_name
+                section.push({
+                    id: value.id,
+                    teacher_id: value.data().teacher_id,
+                    time_absent: value.data().time_absent,
+                    teacher_name: value.data().teacher_name,
+                    Time: value.data().Time,
+                    status: value.data().status,
+                    total_mark: value.data().total_mark,
+                    time_late: value.data().time_late,
+                    section_number: value.data().section_number
+                })
+            })
+            final.push({
+                Subject: {
+                    subject_code: subject_code,
+                    subject_name: subject_name
+                },
+                sections: section
             })
         }
     })
-    
+
     return res.status(200).json({
-        message:"Get Data Success",
-        status:{
-            dataStatus:"SUCCESS"
+        message: "Get Data Success",
+        status: {
+            dataStatus: "SUCCESS"
         },
         data: final
     })
 
 })
 
-//Demo Mock Situatetion CheckName
-app.post('/CheckName',async (req,res) => {
-  
-    const time = moment.tz(req.body.time, "Asia/Bangkok").format("X");
-    console.log(time)
-    const mac_address = req.body.mac_address;
-    let opened_timestamp,time_late,time_absent;
-    let data = {};
-   
-    await db.collection('classes').where('section_id','==',req.body.section_id).get()
-    .then(async resp => {
-        resp.forEach(record => {
-            opened_timestamp = record.data().opened_timestamp
-        })
-        await db.collection('section_subject').doc(req.body.section_id).get()
-        .then(async response => {
-            time_late = response.data().time_late
-            time_absent = response.data().time_absent
+//Mobile Api
 
-            const opened_time = moment.unix(opened_timestamp)
-            const now = moment.unix(time)
+app.get('/ListSectionTeacher', permission_professor, async (req, res) => {
 
-            const diff = moment(opened_time,"DD/MM/YYYY HH:mm:ss").diff(moment(now,"DD/MM/YYYY HH:mm:ss"));
-            const d = moment.duration(Math.abs(diff));
-            const format = moment.unix(time).format("DD/MM/YYYY HH:mm:ss")
-            const minutes = (d.hours()*60) + d.minutes();
+    const subject = [];
 
-            if(minutes >= Number(time_late) && minutes < Number(time_absent)){
-                data = {
-                    section_id : req.body.section_id,
-                    status : 'LATE',
-                    uid : req.body.uid,
-                    mac_address: mac_address,
-                    unix_timestamp : Number(time),
-                    dateTime: format
-                }
-            }
-            else if(minutes >= time_absent){
-                data = {
-                    section_id : req.body.section_id,
-                    status : 'ABSENT',
-                    uid : req.body.uid,
-                    mac_address: mac_address,
-                    unix_timestamp : Number(time),
-                    dateTime: format
-                }
-            }
-            else{
-                data = {
-                    section_id : req.body.section_id,
-                    status : 'ON TIME',
-                    uid : req.body.uid,
-                    mac_address: mac_address,
-                    unix_timestamp : Number(time),
-                    dateTime: format
-                }
-            }
-            await db.collection('class_attendance').add(data)
-            .then(() => {
-                return res.json({
-                    message:"Check Name Success",
-                    mac_address:mac_address
+    await db.collection('subjects').where('approved_status', '==', 'APPROVE')
+        .get()
+        .then(result => {
+            result.forEach(row => {
+                subject.push({
+                    subject_code: row.data().subject_code,
+                    subject_name: row.data().subject_name,
+                    approved_status: row.data().approved_status,
+                    creater_name: row.data().creater_name,
+                    uid: row.data().uid,
                 })
             })
-            .catch(err => {
-                return res.status(500).json({
-                    message:err.message
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
+
+    let year, semester;
+    await db.collection('semester_year').where('status', '==', 'ACTIVE')
+        .get()
+        .then(result => {
+            result.forEach(record => {
+                year = record.data().year;
+                semester = record.data().semester;
+            })
+        })
+
+    const promise = [];
+    let subject_name, subject_code;
+    subject.forEach(record => {
+        promise.push(
+            db.collection('section_subject')
+                .where('teacher_id', '==', req.user_id)
+                .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+                .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
+                .where(new admin.firestore.FieldPath('Subject', 'subject_code'), '==', record.subject_code)
+                .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', record.subject_name)
+                .get())
+    })
+
+    const result = await Promise.all(promise)
+    let section = [];
+    let final = [];
+    result.forEach(record => {
+        section = []
+        if (record.size > 1) {
+            record.forEach(value => {
+                subject_code = value.data().Subject.subject_code;
+                subject_name = value.data().Subject.subject_name;
+                section.push({
+                    id: value.id,
+                    teacher_id: value.data().teacher_id,
+                    time_absent: value.data().time_absent,
+                    teacher_name: value.data().teacher_name,
+                    Time: value.data().Time,
+                    status: value.data().status,
+                    total_mark: value.data().total_mark,
+                    time_late: value.data().time_late,
+                    section_number: value.data().section_number
                 })
             })
-            console.log("Open Class ",moment(opened_time).format("DD/MM/YYYY HH:mm:ss"))
-            console.log("Now :",moment(now).format("DD/MM/YYYY HH:mm:ss"))
+            final.push({
+                Subject: {
+                    subject_code: subject_code,
+                    subject_name: subject_name
+                },
+                sections: section
+            })
+        }
+        else if (record.size > 0) {
+            section = [];
+            record.forEach(value => {
+                subject_code = value.data().Subject.subject_code;
+                subject_name = value.data().Subject.subject_name
+                section.push({
+                    id: value.id,
+                    teacher_id: value.data().teacher_id,
+                    time_absent: value.data().time_absent,
+                    teacher_name: value.data().teacher_name,
+                    Time: value.data().Time,
+                    status: value.data().status,
+                    total_mark: value.data().total_mark,
+                    time_late: value.data().time_late,
+                    section_number: value.data().section_number
+                })
+            })
+            final.push({
+                Subject: {
+                    subject_code: subject_code,
+                    subject_name: subject_name
+                },
+                sections: section
+            })
+        }
+    })
+
+
+    return res.status(200).json({
+        message: "Get Data Success",
+        status: {
+            dataStatus: "SUCCESS"
+        },
+        data: final
+    })
+})
+
+app.get('/ListStudentInSection/:id', permission_professor, async (req, res) => {
+
+    const id = req.params.id
+    await db.collection('section_subject').doc(id).get()
+        .then(async result => {
+            if (result.exists) {
+                db.collection('user_registration').where('section_id', '==', result.id).get()
+                    .then(async resp => {
+                        const student = [];
+                        const promise = [];
+                        resp.forEach(rec => {
+                            promise.push(db.collection('users').doc(rec.data().uid).get()
+                                .then(user => {
+                                    student.push({
+                                        request_id: rec.id,
+                                        std_id: user.data().id,
+                                        firstname: user.data().firstname,
+                                        lastname: user.data().lastname,
+                                        status: rec.data().status
+                                    })
+                                }))
+                        })
+                        await Promise.all(promise)
+                        return res.status(200).json({
+                            message: "Get Data Success",
+                            status: {
+                                dataStatus: "SUCCESS"
+                            },
+                            data: {
+                                subject_code: result.data().Subject.subject_code,
+                                subject_name: result.data().Subject.subject_name,
+                                section_number: result.data().section_number,
+                                students: student
+                            },
+                        })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({
+                            message: err.message
+                        })
+                    })
+            }
+            else {
+                return res.status(404).json({
+                    message: "Get Data Success ",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: {
+                        subject_code: result.data().Subject.subject_code,
+                        subject_name: result.data().Subject.subject_name,
+                        section_number: result.data().section_number,
+                        students: []
+                    }
+                })
+            }
         })
-    })
-    .catch(err => {
-        console.log(err.message)
-    })
-    
-    
+
+})
+
+app.get('/ListRegistration', nisit_permission, async (req, res) => {
+
+    const promise = [];
+    const registration = [];
+    await db.collection('user_registration').where('uid', '==', req.user_id).get()
+        .then(async resp => {
+            if (resp.empty) {
+                return res.status(404).json({
+                    message: "No List Registration",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: []
+                })
+            }
+            resp.forEach(record => {
+                let section_id = record.data().section_id
+                promise.push(db.collection('section_subject').doc(section_id).get()
+                    .then(result => {
+                        if (result.exists) {
+                            registration.push({
+                                request_id: record.id,
+                                subject_code: result.data().Subject.subject_code,
+                                subject_name: result.data().Subject.subject_name,
+                                section_number: result.data().section_number,
+                                status: record.data().status
+                            })
+                        }
+                    }))
+            })
+
+            await Promise.all(promise).catch(err => {
+                console.log("Error", err)
+            })
+            await db.collection('users').doc(req.user_id).get()
+                .then(user => {
+                    return res.status(200).json({
+                        message: "Get User Registration List Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        },
+                        data: {
+                            id: user.data().id,
+                            firstname: user.data().firstname,
+                            lastname: user.data().lastname,
+                            registrations: registration
+                        }
+                    })
+                })
+                .catch(err => {
+                    return res.status(500).json({
+                        message: err.message,
+                        status: {
+                            dataStatus: "FAILURE"
+                        }
+                    })
+                })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message,
+                status: {
+                    dataStatus: "FAILURE"
+                }
+            })
+        })
+})
+
+app.get('/ListSubjects', permission_professor, async (req, res) => {
+
+    const subjects = [];
+    await db.collection('subjects').where('approved_status', '==', 'APPROVE').get()
+        .then(resp => {
+            if (resp.empty) {
+                return res.status(404).json({
+                    message: "No Subjects Found",
+                    status: {
+                        dataStatus: "FAILURE"
+                    },
+                    data: []
+                })
+            }
+            resp.forEach(row => {
+                subjects.push({
+                    id: row.id,
+                    subject_code: row.data().subject_code,
+                    subject_name: row.data().subject_name,
+                    approved_status: row.data().approved_status
+                })
+            })
+            return res.status(200).json({
+                message: "Get Subects Success",
+                status: {
+                    dataStatus: "SUCCESS"
+                },
+                data: subjects
+            })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message,
+                status: {
+                    dataStatus: "FAILURE"
+                }
+            })
+        })
+})
+
+app.post('/CheckName', async (req, res) => {
+
+    const beacon_id = req.body.beacon_id
+    await db.collection('classes').where('beacon_id', '==', beacon_id).get()
+        .then(resp => {
+            resp.forEach(row => {
+                console.log(row.data())
+            })
+        })
+})
+
+app.get('/getClass', permission_professor, async (req, res) => {
+
+    const classes = [];
+    const promise = [];
+    await db.collection('classes').where('status', '==', 'ACTIVE')
+        .where('uid', '==', req.user_id)
+        .get()
+        .then(async resp => {
+            if (resp.empty) {
+                return res.status(404).json({
+                    message: "No Class Open",
+                    status: {
+                        dataStatus: "SUCCESS"
+                    },
+                    data: []
+                })
+            }
+            resp.forEach(doc => {
+                promise.push(db.collection('section_subject').doc(doc.data().section_id).get()
+                    .then(section => {
+                        classes.push({
+                            class_id: doc.id,
+                            subject_code: section.data().Subject.subject_code,
+                            subject_name: section.data().Subject.subject_name,
+                            section_number: section.data().section_number,
+                            Lecturer_name: section.data().teacher_name,
+                            Time: section.data().Time,
+                            beacon_id: doc.data().beacon_id,
+                            classed_status: doc.data().status
+                        })
+                    }))
+            })
+            await Promise.all(promise);
+            return res.status(200).json({
+                message: "Get Data Class Open",
+                status: {
+                    dataStatus: 'SUCCESS'
+                },
+                data: classes
+            })
+        })
+})
+
+app.put('/closeClass/:id', permission_professor, async (req, res) => {
+
+    const class_id = req.params.id;
+    let beacon_id;
+    await db.collection('classes').doc(class_id).get()
+        .then(async classes => {
+            beacon_id = classes.data().beacon_id;
+            await db.collection('classes').doc(class_id).update({
+                status: "DISABLE"
+            })
+                .then(async () => {
+                    await db.collection('beacon').doc(beacon_id).update({
+                        status: "DISABLE"
+                    })
+                    return res.status(200).json({
+                        message: "Close Class Success",
+                        status: {
+                            dataStatus: "SUCCESS"
+                        }
+                    })
+                })
+                .catch(err => {
+                    return res.status(500).json({
+                        message: err.message
+                    })
+                })
+        })
+        .catch(err => {
+            return res.status(500).json({
+                message: err.message
+            })
+        })
 })
 
 exports.api = functions.https.onRequest(app)
