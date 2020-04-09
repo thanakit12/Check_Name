@@ -7,6 +7,8 @@ const config = require('./config')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 const moment = require('moment-timezone')
+const json2csv = require('json2csv');
+const { Parser } = require('json2csv');
 
 const { check_admin, permission_professor, check_admin_professor, nisit_permission, permission_all } = require('./api/permission/func')
 
@@ -1642,11 +1644,11 @@ app.delete('/dropStudent/:id', permission_professor, async (req, res) => {
                         })
                     })
             }
-            else{
+            else {
                 return res.status(404).json({
-                    message:"No Document Found",
-                    status:{
-                        dataStatus:"SUCCESS"
+                    message: "No Document Found",
+                    status: {
+                        dataStatus: "SUCCESS"
                     }
                 })
             }
@@ -1726,7 +1728,8 @@ app.post('/openClass', permission_professor, async (req, res) => {
                             beacon_id: req.body.beacon_id,
                             opened_timestamp: Number(time),
                             status: "ACTIVE",
-                            uid: req.user_id
+                            uid: req.user_id,
+                            distance: Number(req.body.distance)
                         })
                             .then(async () => {
                                 await db.collection('beacon').doc(req.body.beacon_id).update({
@@ -1739,6 +1742,11 @@ app.post('/openClass', permission_professor, async (req, res) => {
                                     status: {
                                         dataStatus: "SUCCESS"
                                     }
+                                })
+                            })
+                            .catch(err => {
+                                return res.status(500).json({
+                                    message: err.message
                                 })
                             })
                     }
@@ -2149,16 +2157,6 @@ app.get('/ListSubjects', permission_professor, async (req, res) => {
         })
 })
 
-app.post('/CheckName', async (req, res) => {
-
-    const beacon_id = req.body.beacon_id
-    await db.collection('classes').where('beacon_id', '==', beacon_id).get()
-        .then(resp => {
-            resp.forEach(row => {
-                console.log(row.data())
-            })
-        })
-})
 
 app.get('/getClass', permission_professor, async (req, res) => {
 
@@ -2237,4 +2235,336 @@ app.put('/closeClass/:id', permission_professor, async (req, res) => {
         })
 })
 
+//deploy at 9/4/2020 finish
+app.get('/getClassForCheckName', nisit_permission, async (req, res) => {
+
+    try {
+        const promise = [];
+        await db.collection('user_registration').where('uid', '==', req.user_id)
+            .where('status', '==', 'APPROVE')
+            .get()
+            .then(async resp => {
+                resp.forEach(row => {
+                    let section_id = row.data().section_id;
+                    promise.push(db.collection('classes').where('section_id', '==', section_id)
+                        .where('status', '==', 'ACTIVE').get())
+                })
+            })
+        const classes = await Promise.all(promise);
+
+        let sections = [];
+        let array_promise = [];
+        classes.forEach(chunk_class => {
+            chunk_class.forEach(row_class => {
+                array_promise.push(db.collection('section_subject').doc(row_class.data().section_id).get()
+                    .then(section => {
+                        if (section.exists) {
+                            sections.push({
+                                class_id: row_class.id,
+                                Section : {
+                                    subject_code : section.data().Subject.subject_code,
+                                    subject_name : section.data().Subject.subject_name,
+                                    section_number : section.data().section_number,
+                                    Time : section.data().Time
+                                }
+                            })
+                        }
+                    }))
+            })
+        })
+        await Promise.all(array_promise);
+        return res.status(200).json({
+            message: "Get List Class For CheckName Success",
+            status: {
+                dataStatus: "SUCCESS"
+            },
+            data: sections
+        })
+    }
+    catch (err) {
+        return res.status(500).json({
+            message: err.message,
+            status: {
+                dataStatus: "FAILURE"
+            }
+        })
+    }
+})
+
+app.post('/CheckName', nisit_permission, async (req, res) => {
+
+    const zone = 'Asia/Bangkok';
+    const time = moment(new Date()).tz(zone).format("X");
+
+    if (req.body.uuid === '' && req.body.major === '' && req.body.minor === '' && req.distance === 0) {
+        return res.status(500).json({
+            message: "No Detected Beacon.Check your internet or turn on your bluetooth and turn on your location.",
+            status: {
+                dataStatus: "FAILURE"
+            }
+        })
+    }
+    else {
+        let beacon_id, time_absent, time_late;
+        await db.collection('beacon').where('uuid', '==', req.body.uuid)
+            .where('major', '==', req.body.major)
+            .where('minor', '==', req.body.minor)
+            .get()
+            .then(async (beacon) => {
+                if (!beacon.empty) {
+                    beacon.forEach(row_beacon => {
+                        beacon_id = row_beacon.id
+                    })
+
+                    await db.collection('classes').doc('Oq4wqb5E2odS3ySRjdjv').get()
+                        .then((resp) => {
+                            let data = {
+                                time: resp.data().opened_timestamp,
+                                section_id: resp.data().section_id
+                            }
+                            return data;
+                        })
+                        .then(async (data) => {
+                            await db.collection('section_subject').doc(data.section_id).get()
+                                .then(async (sections) => {
+                                    time_absent = sections.data().time_absent
+                                    time_late = sections.data().time_late
+
+                                    const open_time = moment.unix(data.time);
+                                    const now = moment.unix(time);
+
+                                    const diff = moment(open_time, "DD/MM/YYYY HH:mm:ss").diff(moment(now, "DD/MM/YYYY HH:mm:ss"));
+
+                                    const d = moment.duration(Math.abs(diff));
+                                    const minutes = (d.hours() * 60) + d.minutes();
+                                    console.log("minutes", minutes)
+                                    const dateTime = moment(new Date()).tz(zone).format('YYYY-MM-DD HH:mm:ss');
+
+                                    if (minutes >= Number(time_late) && minutes < Number(time_absent)) {
+                                        await db.collection('class_attendance').add({
+                                            beacon_id: beacon_id,
+                                            distance: req.body.distance,
+                                            macAddress: req.body.macAddress,
+                                            time: time,
+                                            uid: req.user_id,
+                                            class_id: 'Oq4wqb5E2odS3ySRjdjv',
+                                            status: 'LATE'
+                                        })
+                                            .then(() => {
+                                                return res.status(201).json({
+                                                    message: "Class Attendance Success",
+                                                    status: {
+                                                        dataStatus: "SUCCESS"
+                                                    },
+                                                    dateTime: dateTime,
+                                                    statusCheckIn: "LATE"
+                                                })
+                                            })
+                                    }
+                                    else if (minutes >= Number(time_absent)) {
+                                        await db.collection('class_attendance').add({
+                                            beacon_id: beacon_id,
+                                            distance: req.body.distance,
+                                            macAddress: req.body.macAddress,
+                                            time: time,
+                                            uid: req.user_id,
+                                            class_id: 'Oq4wqb5E2odS3ySRjdjv',
+                                            status: 'ABSENT'
+                                        })
+                                            .then(() => {
+                                                return res.status(201).json({
+                                                    message: "Class Attendance Success",
+                                                    status: {
+                                                        dataStatus: "SUCCESS"
+                                                    },
+                                                    dateTime: dateTime,
+                                                    statusCheckIn: "ABSENT"
+                                                })
+                                            })
+                                    }
+                                    else {
+                                        await db.collection('class_attendance').add({
+                                            beacon_id: beacon_id,
+                                            distance: req.body.distance,
+                                            macAddress: req.body.macAddress,
+                                            time: time,
+                                            uid: req.user_id,
+                                            class_id: 'Oq4wqb5E2odS3ySRjdjv',
+                                            status: 'ONTIME'
+                                        })
+                                            .then(() => {
+                                                return res.status(201).json({
+                                                    message: "Class Attendance Success",
+                                                    status: {
+                                                        dataStatus: "SUCCESS"
+                                                    },
+                                                    dateTime: dateTime,
+                                                    statusCheckIn: "ONTIME"
+                                                })
+                                            })
+                                    }
+                                })
+                        })
+                        .catch(err => {
+                            return res.status(500).json({
+                                message: err.message,
+                                status: {
+                                    dataStatus: "FAILURE"
+                                }
+                            })
+                        })
+                }
+            })
+    }
+})
+
+// //a little bit to finish
+// app.get('/export', async (req, res) => {
+//     try {
+//         let fields = ['id', 'student'];
+//         let year = req.query.year;
+//         let semester = req.query.semester;
+//         let subject_name = req.query.subject_name;
+//         let section = req.query.section;
+//         let subject_code = req.query.subject_code;
+
+//         let section_id, total_mark;
+//         await db.collection('section_subject')
+//             .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+//             .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester)
+//             .where(new admin.firestore.FieldPath('Subject', 'subject_code'), '==', subject_code)
+//             .where(new admin.firestore.FieldPath('Subject', 'subject_name'), '==', subject_name)
+//             .where('section_number', '==', section)
+//             .get()
+//             .then(async (sections) => {
+//                 if (sections.empty) {
+//                     console.log("This is Not found!")
+//                 }
+//                 sections.forEach(row => {
+//                     section_id = row.id;
+//                     total_mark = row.data().total_mark;
+//                 })
+//                 let promise = [];
+//                 await db.collection('user_registration').where('section_id', '==', section_id).where('status', '==', 'APPROVE')
+//                     .get()
+//                     .then((registration) => {
+//                         registration.forEach(row => {
+//                             promise.push(db.collection('users').doc(row.data().uid).get())
+//                         })
+//                     })
+
+//                 const user_registration = await Promise.all(promise);
+//                 let array_class = [];
+//                 await db.collection('classes').where('section_id', '==', section_id).orderBy(admin.firestore.FieldPath.documentId(), 'asc').get()
+//                     .then(classes => {
+//                         if (!classes.empty) {
+//                             classes.forEach(row_class => {
+//                                 let date = moment.unix(row_class.data().opened_timestamp).tz('Asia/Bangkok').format("DD/MM/YYYY")
+//                                 array_class.push({
+//                                     class_id: row_class.id,
+//                                     opened_timestamp: row_class.data().opened_timestamp
+//                                 })
+//                                 fields.push(date)
+//                             })
+//                         }
+//                     })
+//                 let promise3 = [];
+//                 let class_attendance = [];
+//                 if (array_class.length >= 1) {
+//                     array_class.forEach(row_class => {
+//                         promise3.push(db.collection('class_attendance').where('class_id', '==', row_class.class_id).get()
+//                             .then(class_att => {
+//                                 if (!class_att.empty) {
+//                                     class_att.forEach(row_attan => {
+//                                         class_attendance.push({
+//                                             id: row_attan.id,
+//                                             class_id: row_class.class_id,
+//                                             status: row_attan.data().status,
+//                                             time: row_attan.data().time,
+//                                             uid: row_attan.data().uid
+//                                         })
+//                                     })
+//                                 }
+//                             }))
+//                     })
+//                 }
+//                 await Promise.all(promise3);
+//                 let score;
+//                 let final = [];
+//                 let p = [];
+//                 class_attendance.forEach(row_attan => {
+//                     let date = moment.unix(row_attan.time).tz('Asia/Bangkok').format('DD/MM/YYYY')
+//                     console.log(row_attan.uid)
+//                     p.push(db.collection('users').doc(row_attan.uid).get()
+//                         .then(user => {
+//                             if(user.exists){
+//                             let status = row_attan.status;
+//                             if (status === 'ONTIME') {
+//                                 score = 1;
+//                             }
+//                             else if (status === 'LATE') {
+//                                 score = 0.5;
+//                             }
+//                             else {
+//                                 score = 0;
+//                             }
+//                             final.push({
+//                                 id : user.data().id,
+//                                 student: user.data().firstname + " " + user.data().lastname,
+//                                 [`${date}`]: score,
+//                                 Total : score
+//                             })
+//                         }
+//                         }))
+//                 })
+//                 await Promise.all(p);
+//                 const newArray = new Map();
+//                 final.forEach(row => {
+//                     let id = row.id
+//                     if (newArray.has(id)) {
+//                         let r = newArray.get(id);
+//                         r.Total += row.Total;
+//                         newArray.set(id, Object.assign({}, row, r))
+//                     }
+//                     else {
+//                         newArray.set(id, row);
+//                     }
+//                 })
+
+//                 const result = Array.from(newArray.values());
+//                 if (result.length > 0) {
+//                     for (let i = 0; i < result.length; i++) {
+//                         result[i].Total /= total_mark;
+//                     }
+//                     fields.push('Total')
+//                     console.log(fields)
+//                     const json2csvParser = new Parser({ fields });
+//                     const csv = await json2csvParser.parse(result);
+//                     console.log(csv)
+
+//                     res.setHeader(
+//                         "Content-disposition",
+//                         `attachment; filename=${subject_code}_${subject_name}_${section}.csv`,
+//                     )
+//                     res.set("Content-Type", "text/csv")
+//                     return res.status(200).send(csv)
+//                 }
+//                 return res.send("Finish")
+//             })
+
+//     }
+//     catch (err) {
+//         return res.status(500).json({
+//             message: err.message,
+//             status: "FAILURE"
+//         })
+//     }
+
+// })
+
+
+
+
 exports.api = functions.https.onRequest(app)
+
+
