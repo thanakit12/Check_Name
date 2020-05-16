@@ -38,12 +38,12 @@ app.post('/register', async (req, res) => {
     const extras = {
         name: req.body.firstname + " " + req.body.lastname
     }
-    console.log("Register Function")
+    // console.log("Register Function")
     const check_id = await db.collection('users').where('id', '==', req.body.id).get()
     let customClaims;
 
     if (check_id.empty) {
-        console.log("Role :", req.body.role);
+        // console.log("Role :", req.body.role);
         if (req.body.role === 'ADMIN') {
             customClaims = {
                 admin: true
@@ -562,7 +562,7 @@ app.delete('/delSubject/:id', check_admin, async (req, res) => {
                         .then(async sections => {
                             if (!sections.empty) {
                                 let count = sections.size;
-                                console.log(count)
+                                // console.log(count)
                                 return res.status(500).json({
                                     message: "Can't Delete Subject Bacause This Subject is used ",
                                     status: {
@@ -1352,7 +1352,7 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
                 const promise = []
                 const result = []
                 response.forEach(doc => {
-                    console.log(doc.id)
+                    // console.log(doc.id)
                     promise.push(db.collection('user_registration').where('section_id', '==', doc.id).get()
                         .then(data => {
                             data.forEach(rec => {
@@ -1478,7 +1478,7 @@ app.post('/listSecStudent', permission_professor, async (req, res) => {
 app.put('/approveStudent', permission_professor, async (req, res) => {
 
     const id = req.body.id;
-    console.log(id)
+    // console.log(id)
     for (let i = 0; i < id.length; i++) {
         await db.collection('user_registration').doc(id[i]).update({
             status: "APPROVE"
@@ -2502,9 +2502,9 @@ app.post('/CheckName', nisit_permission, async (req, res) => {
                                 const diff = moment(open_time, "DD/MM/YYYY HH:mm:ss").diff(moment(now, "DD/MM/YYYY HH:mm:ss"));
                                 const d = moment.duration(Math.abs(diff));
                                 const minutes = (d.hours() * 60) + d.minutes();
-                                console.log("minutes", minutes)
+                                // console.log("minutes", minutes)
                                 const dateTime = moment(new Date()).tz(zone).format('YYYY-MM-DD HH:mm:ss');
-                                console.log("factor_distance", factor_distance)
+                                // console.log("factor_distance", factor_distance)
                                 if (req.body.distance < factor_distance) {
                                     await db.collection('class_attendance').where('class_id', '==', req.body.class_id)
                                         .where('macAddress', '==', req.body.macAddress)
@@ -2858,7 +2858,7 @@ app.get('/export', async (req, res) => {
             .get()
             .then(async (sections) => {
                 if (sections.empty) {
-                    console.log("This is Not found!")
+                    // console.log("This is Not found!")
                 }
                 sections.forEach(row => {
                     section_id = row.id;
@@ -2887,8 +2887,6 @@ app.get('/export', async (req, res) => {
                                     closed_timestamp: row_class.data().closed_timestamp
                                 })
                                 columns.push({ label: `${date}`, value: `${date}` })
-                                // fields.push(date)
-                                // dates.push(date);
                                 count_date++;
                             })
                         }
@@ -3209,7 +3207,6 @@ app.delete('/clearData', check_admin,async (req, res) => {
                 })
             }
         })
-        console.log(deleteYear)
         let promise = [];
         deleteYear.forEach(row_year => {
             promise.push(db.collection('semester_year').doc(row_year.id).delete()
