@@ -2987,7 +2987,7 @@ app.get('/export', async (req, res) => {
                 const result = Array.from(newArray.values())
                 result.sort((a, b) => a.id - b.id);
                 let settings = {
-                    sheetName: 'First sheet',
+                    sheetName: `${subject_code}_${subject_name}_${section}`,
                     fileName: `${subject_code}_${subject_name}_${section}`,
                 }
                 let file;
