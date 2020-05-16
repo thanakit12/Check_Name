@@ -1,1 +1,0 @@
-start git for check name project
