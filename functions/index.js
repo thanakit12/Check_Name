@@ -346,13 +346,14 @@ app.put('/updateUser', (req, res) => {
     }
 })
 
+//get Name 
+
 //Create Subject  //แก้ v.1.0.1 30/1/2020
 //edit createSubject clear
 app.post('/createSubject', check_admin_professor, async (req, res) => {
 
     let subject;
     if (req.body.subject_code !== "" && req.body.subject_name !== "") {
-
         await db.collection('subjects').where('subject_code', '==', req.body.subject_code)
             .where('subject_name', '==', req.body.subject_name)
             .get()
@@ -363,7 +364,6 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
                             subject_code: req.body.subject_code,
                             subject_name: req.body.subject_name,
                             approved_status: "PENDING",
-                            creater_name: req.name,
                             uid: req.uid
                         }
                     }
@@ -372,7 +372,6 @@ app.post('/createSubject', check_admin_professor, async (req, res) => {
                             subject_code: req.body.subject_code,
                             subject_name: req.body.subject_name,
                             approved_status: "APPROVE",
-                            creater_name: req.name,
                             uid: req.uid
                         }
                     }
@@ -599,13 +598,14 @@ app.delete('/delSubject/:id', check_admin, async (req, res) => {
 
 //add get subject and update subject
 
-app.get('/getSubject/:id', check_admin, (req, res) => {
+app.get('/getSubject/:id', check_admin_professor, (req, res) => {
 
     const subject_id = req.params.id
-
     db.collection('subjects').doc(subject_id).get()
-        .then(result => {
+        .then(async result => {
             if (result.exists) {
+                let creator_id = result.data().uid;
+                let creator_name = await getName(creator_id);
                 return res.status(200).json({
                     message: "Get Subject Success",
                     status: {
@@ -615,7 +615,7 @@ app.get('/getSubject/:id', check_admin, (req, res) => {
                         id: result.id,
                         subject_name: result.data().subject_name,
                         subject_code: result.data().subject_code,
-                        creater_name: result.data().creater_name,
+                        creater_name: creator_name,
                         semester: result.data().semester,
                         year: result.data().year,
                         approved_status: result.data().approved_status
@@ -3271,3 +3271,12 @@ app.delete('/clearData', check_admin,async (req, res) => {
 })
 
 exports.api = functions.https.onRequest(app)
+
+async function getName(uid){
+    let name;
+    await db.collection('users').doc(uid).get()
+    .then(users => {
+        name = users.data().firstname + " " + users.data().lastname
+    })
+    return name;
+}
