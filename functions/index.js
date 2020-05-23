@@ -2495,26 +2495,27 @@ app.post('/CheckName', nisit_permission, async (req, res) => {
                                 time_absent = sections.data().time_absent
                                 time_late = sections.data().time_late
                                 const open_time = moment.unix(data.time);
-
                                 const now = moment.unix(time);
-                                const factor = await getFactor();
-                                let factor_distance = data.distance * factor;
+                                let rssi = Number(req.body.rssi);
+                                let cal = (rssi + 70.751) / -8.802;
+                                console.log("cal", cal)
+                                let calculateDistance = Math.pow(Math.E, cal);
+                                console.log(calculateDistance);
                                 const diff = moment(open_time, "DD/MM/YYYY HH:mm:ss").diff(moment(now, "DD/MM/YYYY HH:mm:ss"));
                                 const d = moment.duration(Math.abs(diff));
                                 const minutes = (d.hours() * 60) + d.minutes();
                                 // console.log("minutes", minutes)
                                 const dateTime = moment(new Date()).tz(zone).format('YYYY-MM-DD HH:mm:ss');
-                                // console.log("factor_distance", factor_distance)
-                                if (req.body.distance < factor_distance) {
+                                if (calculateDistance < data.distance) {
                                     await db.collection('class_attendance').where('class_id', '==', req.body.class_id)
                                         .where('macAddress', '==', req.body.macAddress)
                                         .get()
                                         .then(async attandence => {
-                                            if (attandence.empty) {
+                                            // if (attandence.empty) {
                                                 if (minutes >= Number(time_late) && minutes < Number(time_absent)) {
                                                     await db.collection('class_attendance').add({
                                                         beacon_id: beacon_id,
-                                                        distance: req.body.distance,
+                                                        distance: calculateDistance,
                                                         macAddress: req.body.macAddress,
                                                         time: Number(time),
                                                         uid: req.user_id,
@@ -2536,7 +2537,7 @@ app.post('/CheckName', nisit_permission, async (req, res) => {
                                                 else if (minutes >= Number(time_absent)) {
                                                     await db.collection('class_attendance').add({
                                                         beacon_id: beacon_id,
-                                                        distance: req.body.distance,
+                                                        distance: calculateDistance,
                                                         macAddress: req.body.macAddress,
                                                         time: Number(time),
                                                         uid: req.user_id,
@@ -2558,7 +2559,7 @@ app.post('/CheckName', nisit_permission, async (req, res) => {
                                                 else {
                                                     await db.collection('class_attendance').add({
                                                         beacon_id: beacon_id,
-                                                        distance: req.body.distance,
+                                                        distance:calculateDistance,
                                                         macAddress: req.body.macAddress,
                                                         time: Number(time),
                                                         uid: req.user_id,
@@ -2577,15 +2578,15 @@ app.post('/CheckName', nisit_permission, async (req, res) => {
                                                             })
                                                         })
                                                 }
-                                            }
-                                            else {
-                                                return res.status(500).json({
-                                                    message: "This Mac Address is already used in this class.",
-                                                    status: {
-                                                        dataStatus: "FAILURE"
-                                                    }
-                                                })
-                                            }
+                                            // }
+                                            // else {
+                                            //     return res.status(500).json({
+                                            //         message: "This Mac Address is already used in this class.",
+                                            //         status: {
+                                            //             dataStatus: "FAILURE"
+                                            //         }
+                                            //     })
+                                            // }
                                         })
                                 }
                                 else {
@@ -2606,8 +2607,8 @@ app.post('/CheckName', nisit_permission, async (req, res) => {
                             }
                         })
                     })
-            }
-        })
+                }
+            })
 })
 
 app.get('/TeachHistory/:id', permission_professor, async (req, res) => {
@@ -3186,7 +3187,7 @@ app.post('/TestDistanceBeacon', async (req, res) => {
     }
 })
 
-app.delete('/clearData', check_admin,async (req, res) => {
+app.delete('/clearData', check_admin, async (req, res) => {
 
     try {
         let id_year, currentYear;
@@ -3253,20 +3254,20 @@ app.delete('/clearData', check_admin,async (req, res) => {
 
         await Promise.all(promise);
         return res.status(200).json({
-            message:"Clear Data Success",
-            status:{
-                dataStatus:"SUCCESS"
+            message: "Clear Data Success",
+            status: {
+                dataStatus: "SUCCESS"
             }
         })
 
     }
     catch (error) {
-       return res.status(500).json({
-           message:error.message,
-           status:{
-               dataStatus:"FAILURE"
-           }
-       })
+        return res.status(500).json({
+            message: error.message,
+            status: {
+                dataStatus: "FAILURE"
+            }
+        })
     }
 })
 
