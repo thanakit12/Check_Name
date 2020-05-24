@@ -313,6 +313,16 @@ app.put('/updateUser', (req, res) => {
                             lastname: req.body.lastname,
                             mobile: req.body.mobile
                         })
+                            .then(async () => {
+                                await db.collection('section_subject').where('teacher_id','==',uid).get()
+                                .then(sections => {
+                                    sections.forEach(section => {
+                                        db.collection('section_subject').doc(section.id).update({
+                                            teacher_name : req.body.firstname + " " + req.body.lastname
+                                        })
+                                    })
+                                })
+                            })
                             .then(() => {
                                 return res.status(200).json({
                                     message: "Update Success",
@@ -726,13 +736,13 @@ app.post('/subject_register', permission_professor, async (req, res) => {
 })
 
 //edit response 
-//ยังไม่เสร็จ
 app.get('/getSection/:id', permission_professor, async (req, res) => {
 
     const section_id = req.params.id
     const result = []
     await db.collection('section_subject').doc(section_id).get()
-        .then(doc => {
+        .then(async doc => {
+            let teacher_name = await getName(doc.data().teacher_id)
             let data_section;
             if (doc.exists) {
                 if (doc.data().Time.length === 1) {
@@ -748,7 +758,7 @@ app.get('/getSection/:id', permission_professor, async (req, res) => {
                         finish_time1: doc.data().Time[0].end_time,
                         total_mark: doc.data().total_mark,
                         status: doc.data().status,
-                        teacher_name: doc.data().teacher_name
+                        teacher_name: teacher_name
                     }
                 }
                 else {
@@ -767,7 +777,7 @@ app.get('/getSection/:id', permission_professor, async (req, res) => {
                         finish_time2: doc.data().Time[1].end_time,
                         total_mark: doc.data().total_mark,
                         status: doc.data().status,
-                        teacher_name: doc.data().teacher_name
+                        teacher_name: teacher_name
                     }
                 }
                 result.push(data_section)
@@ -888,7 +898,10 @@ app.delete('/deleteSection/:id', permission_professor, async (req, res) => {
         }
         else {
             return res.status(404).json({
-                message: "No Matching Document"
+                message: "No Matching Document",
+                status:{
+                    dataStatus:"SUCCESS"
+                }
             })
         }
     }
@@ -912,6 +925,7 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
 
     const subjects = []
     let year, semester;
+    let teacher_name = await getName(req.user_id)
     db.collection('semester_year').where('status', '==', 'ACTIVE').get()
         .then(result => {
             if (!result.empty) {
@@ -936,7 +950,7 @@ app.get('/getSubjects', permission_professor, async (req, res) => {
                                 time_late: doc.data().time_late,
                                 total_mark: doc.data().total_mark,
                                 status: doc.data().status,
-                                teacher_name: doc.data().teacher_name
+                                teacher_name: teacher_name
                             })
                         })
                         return res.status(200).json({
@@ -984,6 +998,7 @@ app.get('/ListStudent', permission_professor, async (req, res) => {
                     .where(new admin.firestore.FieldPath('Year', 'semester'), '==', semester.toString())
                     .get()
                     .then(async (response) => {
+
                         // if (response.empty) {
                         //     return res.status(404).json({
                         //         message: "No Matching Document ",
@@ -1104,14 +1119,20 @@ app.get('/getStudentSection/:id', permission_professor, async (req, res) => {
                     })
                     .catch(err => {
                         return res.status(500).json({
-                            message: err.message
+                            message: err.message,
+                            status: {
+                                dataStatus: "FAILURE"
+                            }
                         })
                     })
             }
             else {
                 return res.status(404).json({
                     message: "No Matching Document ",
-                    data: []
+                    data: [],
+                    status: {
+                        dataStatus: "SUCCESS"
+                    }
                 })
             }
         })
@@ -1254,7 +1275,49 @@ app.delete('/delYear/:id', check_admin, (req, res) => {
             })
         }
         else {
+            let year = result.data().year;
+            let semester = result.data().semester;
+            let promise = [];
             db.collection('semester_year').doc(id).delete()
+                .then(async () => {
+                    await db.collection('section_subject')
+                    .where(new admin.firestore.FieldPath('Year', 'year'), '==', Number(year))
+                    .where(new admin.firestore.FieldPath('Year','semester'),'==',semester.toString())
+                    .get()
+                    .then(sections => {
+                        sections.forEach(section => {
+                            promise.push(db.collection('section_subject').doc(section.id).delete()
+                                         .then(() => {
+                                             db.collection('user_registration').where('section_id','==',section.id)
+                                             .get()
+                                             .then(registrations => {
+                                                 registrations.forEach(registration => {
+                                                     db.collection('user_registration').doc(registration.id).delete()
+                                                     .then(() => {
+                                                         db.collection('classes').where('section_id','==',section.id)
+                                                         .get()
+                                                         .then(classes => {
+                                                             classes.forEach(c => {
+                                                                 db.collection('classes').doc(c.id).delete()
+                                                                 .then(() => {
+                                                                     db.collection('class_attendance').where('class_id','==',c.id)
+                                                                     .get()
+                                                                     .then(attandances => {
+                                                                         attandances.forEach(attandance => {
+                                                                             db.collection('class_attendance').doc(attandance.id).delete()
+                                                                         })
+                                                                     })
+                                                                 })
+                                                             })
+                                                         })
+                                                     })
+                                                 })
+                                             })
+                                         }))
+                        })
+                    })
+                    await Promise.all(promise);
+                })
                 .then(() => {
                     return res.status(200).json({
                         message: "Delete Success",
@@ -1919,7 +1982,7 @@ app.get('/getSubjectByStudent', nisit_permission, async (req, res) => {
                     subject_code: row.data().subject_code,
                     subject_name: row.data().subject_name,
                     approved_status: row.data().approved_status,
-                    creater_name: row.data().creater_name,
+                    // creater_name: row.data().creater_name,
                     uid: row.data().uid,
                 })
             })
@@ -2032,7 +2095,7 @@ app.get('/ListSectionTeacher', permission_professor, async (req, res) => {
                     subject_code: row.data().subject_code,
                     subject_name: row.data().subject_name,
                     approved_status: row.data().approved_status,
-                    creater_name: row.data().creater_name,
+                    // creater_name: row.data().creater_name,
                     uid: row.data().uid,
                 })
             })
@@ -3186,7 +3249,7 @@ app.post('/TestDistanceBeacon', async (req, res) => {
     }
 })
 
-app.delete('/clearData', check_admin,async (req, res) => {
+app.delete('/clearData', check_admin, async (req, res) => {
 
     try {
         let id_year, currentYear;
@@ -3253,30 +3316,30 @@ app.delete('/clearData', check_admin,async (req, res) => {
 
         await Promise.all(promise);
         return res.status(200).json({
-            message:"Clear Data Success",
-            status:{
-                dataStatus:"SUCCESS"
+            message: "Clear Data Success",
+            status: {
+                dataStatus: "SUCCESS"
             }
         })
 
     }
     catch (error) {
-       return res.status(500).json({
-           message:error.message,
-           status:{
-               dataStatus:"FAILURE"
-           }
-       })
+        return res.status(500).json({
+            message: error.message,
+            status: {
+                dataStatus: "FAILURE"
+            }
+        })
     }
 })
 
 exports.api = functions.https.onRequest(app)
 
-async function getName(uid){
+async function getName(uid) {
     let name;
     await db.collection('users').doc(uid).get()
-    .then(users => {
-        name = users.data().firstname + " " + users.data().lastname
-    })
+        .then(users => {
+            name = users.data().firstname + " " + users.data().lastname
+        })
     return name;
 }
