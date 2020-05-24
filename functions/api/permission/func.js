@@ -49,15 +49,17 @@ const check_admin = (req, res, next) => {
     }
 }
 
-const permission_professor = (req, res, next) => {
+const permission_professor = async (req, res, next) => {
     if (req.headers.token === undefined) {
         return res.status(401).json({ message: "Please insert token" })
     }
     else {
         const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
+        admin.auth().verifyIdToken(token).then(async claim => {
             if (claim.professor === true) {
-                req.name = claim.name
+                const user = await admin.firestore().collection('users').doc(claim.user_id).get()
+                req.name = user.data().firstname + " " + user.data().lastname
+                // req.name = claim.name
                 req.user_id = claim.user_id
                 next()
             }
@@ -76,9 +78,11 @@ const check_admin_professor = (req, res, next) => {
     if (req.headers.token !== undefined) {
         const token = req.headers.token
         admin.auth().verifyIdToken(token)
-            .then(claim => {
+            .then(async claim => {
                 if (claim.admin === true || claim.professor === true) {
-                    req.name = claim.name
+                    const user = await admin.firestore().collection('users').doc(claim.user_id).get()
+                    req.name = user.data().firstname + " " + user.data().lastname
+                    // req.name = claim.name
                     req.claim = claim
                     req.uid = claim.uid
                     next()
@@ -103,15 +107,17 @@ const check_admin_professor = (req, res, next) => {
     }
 }
 
-const nisit_permission = (req, res, next) => {
+const nisit_permission = async (req, res, next) => {
     if (req.headers.token === undefined) {
         return res.status(401).json({ message: "Please insert token" })
     }
     else {
         const token = req.headers.token
-        admin.auth().verifyIdToken(token).then(claim => {
+        admin.auth().verifyIdToken(token).then(async claim => {
             if (claim.nisit === true) {
-                req.name = claim.name
+                const user = await admin.firestore().collection('users').doc(claim.user_id).get()
+                req.name = user.data().firstname + " " + user.data().lastname
+                // req.name = claim.name
                 req.user_id = claim.user_id
                 next()
             }
