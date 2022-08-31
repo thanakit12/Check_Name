@@ -24,7 +24,7 @@
     "body-parser": "^1.19.0",
     "express": "^4.17.1",
     "moment": "^2.24.0",
-    "moment-timezone": "^0.5.28",
+    "moment-timezone": "^0.5.35",
     "json2csv": "^5.0.0",
     "json2xls": "^0.1.2",
     "json2excel": "^1.2.0",
