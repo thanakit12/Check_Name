@@ -13,8 +13,8 @@
     "node": "8"
   },
   "dependencies": {
-    "firebase-admin": "^8.9.0",
-    "firebase-functions": "^3.3.0",
+    "firebase-admin": "^11.4.1",
+    "firebase-functions": "^3.24.1",
     "firebaseauth": "^1.0.0",
     "cors": "^2.8.5",
     "body-parser": "^1.19.0",
